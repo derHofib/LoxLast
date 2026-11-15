@@ -1,14 +1,15 @@
-import { z } from 'zod';
-
 /**
- * Gemeinsame Schemas für Gateway ↔ Browser (Kap. 8).
- * Meilenstein 1: nur Health-Check. Die übrigen Endpunkte und WebSocket-Nachrichten
- * folgen mit Meilenstein 8.
+ * Gemeinsame Schemas für Gateway ↔ Browser (Kap. 8.2, 8.3).
+ * Spezifiziert sind alle Endpunkte und WebSocket-Nachrichten; das Gateway implementiert in
+ * Meilenstein 8 (ohne Hardware) Health, Pairing, Miniserver-Zugang/-Status, Änderungsprotokoll und den
+ * WebSocket-Handshake. Geräte-Test, Live-Snapshot, Parameter schreiben und Revert folgen mit Hardware.
  */
-
-export const HealthResponseSchema = z.object({
-  status: z.literal('ok'),
-  service: z.literal('lastplan-gateway'),
-  version: z.string(),
-});
-export type HealthResponse = z.infer<typeof HealthResponseSchema>;
+export * from './health';
+export * from './errors';
+export * from './network';
+export * from './pairing';
+export * from './devices';
+export * from './miniserver';
+export * from './parameters';
+export * from './changelog';
+export * from './live';

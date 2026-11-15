@@ -9,7 +9,7 @@ Dieser Plan zerlegt die Meilensteine 2–10 in Arbeitspakete (AP), nennt Abhäng
 | MS  | Inhalt                                                                    | Hängt ab von          | Liefert der Auftraggeber vorher                               | Umfang   |
 | --- | ------------------------------------------------------------------------- | --------------------- | ------------------------------------------------------------- | -------- |
 | 1   | Grundgerüst                                                               | –                     | –                                                             | erledigt |
-| 2   | Kernlogik: Berechnung, Prüfregeln, Simulation, Schieflast-Optimierung     | 1                     | –                                                             | M        |
+| 2   | Kernlogik: Berechnung, Prüfregeln, Simulation, Schieflast-Optimierung     | 1                     | –                                                             | erledigt |
 | 3   | UI-Basis: Komponenten, App-Rahmen, Projektübersicht, IndexedDB, Undo/Redo | 1 (2 für Prüfanzeige) | –                                                             | L        |
 | 4   | Struktur-Ansicht (Cluster-Editor)                                         | 2, 3                  | –                                                             | L        |
 | 5   | Ladepunkte-Ansicht + Wallbox-Bibliothek                                   | 2, 3                  | **Modbus-Doku ABL eM4**, Liste häufigster Modelle             | L        |

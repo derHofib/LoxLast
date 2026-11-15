@@ -29,6 +29,8 @@ jobs:
         run: pnpm lint
       - name: Typprüfung
         run: pnpm typecheck
+      - name: Wallbox-Bibliothek prüfen
+        run: pnpm --filter @lastplan/wallbox-library test
       - name: Tests mit Abdeckung
         run: pnpm test:coverage
       - name: Build

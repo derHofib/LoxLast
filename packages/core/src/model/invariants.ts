@@ -1,3 +1,4 @@
+import { formatA } from '../calc/units';
 import { IEC_MIN_CHARGING_CURRENT_A } from './primitives';
 import { ProjectSchema, type Cluster, type Project } from './project';
 
@@ -165,7 +166,7 @@ export function checkProjectInvariants(project: Project): InvariantIssue[] {
     const problems: string[] = [];
     if (cp.minA < IEC_MIN_CHARGING_CURRENT_A) {
       problems.push(
-        `Mindeststrom ${formatA(cp.minA)} unter ${IEC_MIN_CHARGING_CURRENT_A} A (IEC 61851)`,
+        `Mindeststrom ${formatA(cp.minA)} unter ${formatA(IEC_MIN_CHARGING_CURRENT_A)} (IEC 61851)`,
       );
     }
     if (cp.minA > cp.maxA) {
@@ -186,11 +187,6 @@ export function checkProjectInvariants(project: Project): InvariantIssue[] {
   });
 
   return issues;
-}
-
-/** Deutsches Zahlenformat mit Einheit, z. B. „7,5 A“. Ausführliche Formatierung folgt in calc (Meilenstein 2). */
-function formatA(value: number): string {
-  return `${value.toLocaleString('de-DE', { maximumFractionDigits: 1 })} A`;
 }
 
 /** Form + Invarianten. Für Import und Export. */

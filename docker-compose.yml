@@ -1,0 +1,33 @@
+# Gateway starten:
+#   Lokal (Laptop im Anlagennetz):  docker compose --profile local up --build
+#   Server/VPS:                      docker compose --profile server up --build -d
+# Einstellungen siehe .env.example (cp .env.example .env).
+services:
+  # Profil „local“: nur auf localhost des Laptops erreichbar, Schlüssel wird bei Bedarf automatisch angelegt.
+  gateway-local:
+    profiles: [local]
+    build: { context: ., dockerfile: apps/gateway/Dockerfile }
+    environment:
+      GATEWAY_PROFILE: local
+      GATEWAY_HOST: 0.0.0.0 # im Container; nach außen schränkt das Port-Mapping auf 127.0.0.1 ein
+      GATEWAY_ALLOWED_ORIGINS: ${GATEWAY_ALLOWED_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173}
+      GATEWAY_SECRET_KEY: ${GATEWAY_SECRET_KEY:-}
+    ports: ['127.0.0.1:8787:8787']
+    volumes: ['gateway-data-local:/data']
+    restart: unless-stopped
+
+  # Profil „server“: Schlüssel und Origin sind Pflicht; TLS/Reverse-Proxy (z. B. Caddy) davor schalten.
+  gateway-server:
+    profiles: [server]
+    build: { context: ., dockerfile: apps/gateway/Dockerfile }
+    environment:
+      GATEWAY_PROFILE: server
+      GATEWAY_ALLOWED_ORIGINS: ${GATEWAY_ALLOWED_ORIGINS:?GATEWAY_ALLOWED_ORIGINS in .env setzen}
+      GATEWAY_SECRET_KEY: ${GATEWAY_SECRET_KEY:?GATEWAY_SECRET_KEY in .env setzen (openssl rand -hex 32)}
+    ports: ['${GATEWAY_BIND:-127.0.0.1}:8787:8787']
+    volumes: ['gateway-data-server:/data']
+    restart: unless-stopped
+
+volumes:
+  gateway-data-local:
+  gateway-data-server:

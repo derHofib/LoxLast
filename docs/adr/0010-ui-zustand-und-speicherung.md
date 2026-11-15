@@ -1,4 +1,4 @@
-# 0007 – Zustand, Undo/Redo und lokale Speicherung
+# 0010 – Zustand, Undo/Redo und lokale Speicherung
 
 **Status:** Angenommen · 2026-11-15
 

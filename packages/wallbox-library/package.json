@@ -9,9 +9,10 @@
     ".": "./src/index.ts"
   },
   "scripts": {
+    "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "zod": "^4.1.0"
+    "ajv": "^8.17.1"
   }
 }
