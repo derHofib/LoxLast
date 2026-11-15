@@ -1,6 +1,6 @@
 /**
  * Schnittstellen zu Hardware. Echte Implementierungen folgen, sobald Test-Miniserver und
- * Test-Wallbox verfügbar sind (ADR 0007). Bis dahin gibt es nur Mocks für Tests.
+ * Test-Wallbox verfügbar sind (ADR 0008). Bis dahin gibt es nur Mocks für Tests.
  * Bewusst KEINE Register-/Adressannahmen: Adressen kommen aus der Wallbox-Bibliothek
  * bzw. aus dem Loxone-Export und werden vom Aufrufer übergeben.
  */
@@ -22,7 +22,7 @@ export interface MiniserverClient {
   connect(): Promise<void>;
   disconnect(): Promise<void>;
   readonly state: MiniserverConnection;
-  /** Wert eines Bausteins/Eingangs lesen. `address` ist Miniserver-seitig definiert (TODO(verify), ADR 0007). */
+  /** Wert eines Bausteins/Eingangs lesen. `address` ist Miniserver-seitig definiert (TODO(verify), ADR 0008). */
   readValue(address: string): Promise<number | string>;
   /** Virtuellen Eingang setzen und zurücklesen; `confirmed` ist true, wenn Rücklesewert == Sollwert. */
   setVirtualInput(

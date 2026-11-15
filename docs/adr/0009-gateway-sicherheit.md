@@ -1,4 +1,4 @@
-# 0008 – Gateway: Kopplung, Zugangsdaten, Netzwerkschutz
+# 0009 – Gateway: Kopplung, Zugangsdaten, Netzwerkschutz
 
 **Status:** Angenommen · 2026-11-15 (abgeglichen mit Spezifikation Kap. 8, 9, 12)
 
@@ -14,7 +14,7 @@
 - **Änderungsprotokoll (Kap. 8.1/9):** append-only (DB-Trigger), Felder wer/wann/Aktion/Projekt/Ziel/vorher/nachher. „Wer“ ist ein Sitzungs-Pseudonym (`sitzung-<Hash>`), weil es keine Nutzerverwaltung gibt. Abfrage über `GET /api/projects/:id/changelog`.
 - **Mandantenfähigkeit (Kap. 12):** `tenant_id` (Standard `default`) in `credentials` und `changelog` vorgesehen, noch ungenutzt.
 - **Robustheit (Kap. 8.4):** Standard-Polling 2 s (`DEFAULT_POLL_INTERVAL_MS`) und Backoff-Funktion `backoffDelayMs` sind vorhanden; Polling-Schleifen, Timeouts und Rücklesen gegen echte Geräte folgen mit Hardware.
-- **Hardware-Clients:** `MiniserverClient` und `ModbusClient` sind nur Interfaces mit Mocks. Keine Register oder Miniserver-Adressen hinterlegt (ADR 0007).
+- **Hardware-Clients:** `MiniserverClient` und `ModbusClient` sind nur Interfaces mit Mocks. Keine Register oder Miniserver-Adressen hinterlegt (ADR 0008).
 
 ## Stand gegenüber Kap. 8.2
 

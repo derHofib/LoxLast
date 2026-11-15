@@ -1,0 +1,106 @@
+{
+  "$schema": "../../schema/wallbox-model.schema.json",
+  "id": "abl/em4-twin@1",
+  "vendor": "ABL",
+  "model": "eM4 Twin (Controller)",
+  "firmware": {
+    "min": "TODO(verify)",
+    "max": "TODO(verify)",
+    "source": "TODO"
+  },
+  "protocols": ["modbus-tcp"],
+  "electrical": {
+    "minA": "TODO",
+    "maxA": "TODO",
+    "phases": "TODO",
+    "phaseSwitching": "TODO",
+    "source": "TODO"
+  },
+  "modbus": {
+    "defaultPort": "TODO",
+    "defaultUnitId": "TODO",
+    "byteOrder": "TODO",
+    "registers": {
+      "setpointCurrent": {
+        "address": "TODO",
+        "fn": "TODO",
+        "type": "TODO",
+        "scale": "TODO",
+        "access": "TODO",
+        "unit": "TODO",
+        "source": "TODO"
+      },
+      "enable": {
+        "address": "TODO",
+        "fn": "TODO",
+        "type": "TODO",
+        "scale": "TODO",
+        "access": "TODO",
+        "unit": "TODO",
+        "source": "TODO"
+      },
+      "currentL1": {
+        "address": "TODO",
+        "fn": "TODO",
+        "type": "TODO",
+        "scale": "TODO",
+        "access": "TODO",
+        "unit": "TODO",
+        "source": "TODO"
+      },
+      "currentL2": {
+        "address": "TODO",
+        "fn": "TODO",
+        "type": "TODO",
+        "scale": "TODO",
+        "access": "TODO",
+        "unit": "TODO",
+        "source": "TODO"
+      },
+      "currentL3": {
+        "address": "TODO",
+        "fn": "TODO",
+        "type": "TODO",
+        "scale": "TODO",
+        "access": "TODO",
+        "unit": "TODO",
+        "source": "TODO"
+      },
+      "power": {
+        "address": "TODO",
+        "fn": "TODO",
+        "type": "TODO",
+        "scale": "TODO",
+        "access": "TODO",
+        "unit": "TODO",
+        "source": "TODO"
+      },
+      "energy": {
+        "address": "TODO",
+        "fn": "TODO",
+        "type": "TODO",
+        "scale": "TODO",
+        "access": "TODO",
+        "unit": "TODO",
+        "source": "TODO"
+      },
+      "status": {
+        "address": "TODO",
+        "fn": "TODO",
+        "type": "TODO",
+        "scale": "TODO",
+        "access": "TODO",
+        "unit": "TODO",
+        "source": "TODO",
+        "enum": "TODO"
+      }
+    },
+    "source": "TODO"
+  },
+  "loxone": {
+    "functionBlock": "TODO(verify: Bausteinname laut Config-Version)",
+    "inputs": "TODO",
+    "outputs": "TODO",
+    "source": "TODO"
+  }
+}

@@ -4,7 +4,7 @@ Planungs- und Inbetriebnahme-Tool für Loxone-Lastmanagement von Ladeinfrastrukt
 
 > Unabhängiges Werkzeug, kein offizielles Loxone-Produkt.
 
-**Stand:** Meilenstein 1 – Grundgerüst (Monorepo, CI, Design-Tokens, Domänenmodell, Migrationsrahmen).
+**Stand:** Meilenstein 2 – Kernlogik (Berechnung, Prüfregeln, Simulation, Schieflast-Optimierung) auf Basis des Grundgerüsts.
 
 ## Voraussetzungen
 
@@ -69,4 +69,4 @@ docker compose --profile server up --build -d     # VPS: GATEWAY_SECRET_KEY und 
 docker compose logs gateway-local | grep Kopplungscode
 ```
 
-Sicherheitskonzept: [ADR 0008](docs/adr/0008-gateway-sicherheit.md), Miniserver-Anbindung: [ADR 0007](docs/adr/0007-miniserver-anbindung.md).
+Sicherheitskonzept: [ADR 0009](docs/adr/0009-gateway-sicherheit.md), Miniserver-Anbindung: [ADR 0008](docs/adr/0008-miniserver-anbindung.md).

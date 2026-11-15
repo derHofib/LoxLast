@@ -1,4 +1,4 @@
-# 0007 – Anbindung des Miniservers im Gateway
+# 0008 – Anbindung des Miniservers im Gateway
 
 **Status:** Annahme · 2026-11-15 (Empfehlung, vom Auftraggeber noch nicht bestätigt)
 
