@@ -218,6 +218,22 @@ describe('Invarianten als Regeln', () => {
     ]);
   });
 
+  it('CP_MIN_MAX: unbekannte Modellgrenzen (null) werden nicht geprüft', () => {
+    const p = cleanProject();
+    Object.assign(p.chargePoints[1] ?? {}, { maxA: 40, fuseA: 50 });
+    const unknown = catalogFromModels([
+      {
+        ...TEST_MODEL,
+        complete: false,
+        missingFields: ['electrical.maxA'],
+        electrical: { minA: null, maxA: null, phases: null, phaseSwitching: null },
+      },
+    ]);
+    expect(run(cpMinMaxRule, p, unknown)).toEqual([]);
+    Object.assign(p.chargePoints[0] ?? {}, { phaseSwitching: true });
+    expect(run(phaseSwitchRule, p, unknown)).toEqual([]);
+  });
+
   it('STRUCTURE', () => {
     const p = cleanProject();
     Object.assign(p.chargePoints[1] ?? {}, { label: 'LP01' });

@@ -48,15 +48,13 @@ export const cpMinMaxRule: Rule = {
       const model = context.catalog.get(cp.libraryModelId);
       if (!model) continue;
       const problems: string[] = [];
-      if (cp.maxA > model.electrical.maxA) {
-        problems.push(
-          `Maximalstrom ${formatA(cp.maxA)} über Modell-Maximum ${formatA(model.electrical.maxA)}`,
-        );
+      // null = Grenze im Modell noch TODO → nicht prüfbar (MODEL_INCOMPLETE meldet das Modell)
+      const { minA, maxA } = model.electrical;
+      if (maxA !== null && cp.maxA > maxA) {
+        problems.push(`Maximalstrom ${formatA(cp.maxA)} über Modell-Maximum ${formatA(maxA)}`);
       }
-      if (cp.minA < model.electrical.minA) {
-        problems.push(
-          `Mindeststrom ${formatA(cp.minA)} unter Modell-Minimum ${formatA(model.electrical.minA)}`,
-        );
+      if (minA !== null && cp.minA < minA) {
+        problems.push(`Mindeststrom ${formatA(cp.minA)} unter Modell-Minimum ${formatA(minA)}`);
       }
       if (problems.length > 0) {
         findings.push(

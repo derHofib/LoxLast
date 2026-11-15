@@ -56,11 +56,12 @@ export interface CatalogModel {
   complete: boolean;
   /** Fehlende Angaben, z. B. ['modbus.registers.setpointCurrent.address']. */
   missingFields: string[];
+  /** null = in der Modelldatei noch TODO; die zugehörige Prüfung entfällt dann (MODEL_INCOMPLETE meldet es). */
   electrical: {
-    minA: number;
-    maxA: number;
-    phases: readonly (1 | 3)[];
-    phaseSwitching: boolean;
+    minA: number | null;
+    maxA: number | null;
+    phases: readonly (1 | 3)[] | null;
+    phaseSwitching: boolean | null;
   };
 }
 

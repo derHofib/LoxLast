@@ -46,7 +46,8 @@ export const phaseSwitchRule: Rule = {
     return project.chargePoints.flatMap((cp) => {
       if (!cp.phaseSwitching) return [];
       const model = catalog.get(cp.libraryModelId);
-      if (!model || model.electrical.phaseSwitching) return [];
+      // unbekannt (null) → MODEL_INCOMPLETE meldet das Modell bereits
+      if (!model || model.electrical.phaseSwitching !== false) return [];
       return [
         finding(
           phaseSwitchRule,
