@@ -1,5 +1,11 @@
 import { defineProject } from 'vitest/config';
+import react from '@vitejs/plugin-react';
 
 export default defineProject({
-  test: { name: 'ui', environment: 'node', passWithNoTests: true },
+  plugins: [react()],
+  test: {
+    name: 'ui',
+    environment: 'jsdom',
+    setupFiles: ['./src/test-setup.ts'],
+  },
 });

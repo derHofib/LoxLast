@@ -3,5 +3,9 @@ import react from '@vitejs/plugin-react';
 
 export default defineProject({
   plugins: [react()],
-  test: { name: 'web', environment: 'jsdom' },
+  test: {
+    name: 'web',
+    environment: 'jsdom',
+    setupFiles: ['./src/test-setup.ts'],
+  },
 });

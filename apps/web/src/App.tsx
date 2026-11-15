@@ -1,26 +1,30 @@
-import { CURRENT_SCHEMA_VERSION } from '@lastplan/core';
+import { useEffect, useState } from 'react';
+import { HashRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { AppHeader } from './components/AppHeader';
+import { ProjectShell } from './components/ProjectShell';
+import { Components } from './pages/Components';
+import { ProjectList } from './pages/ProjectList';
+import { useShortcuts } from './state/useShortcuts';
+import { startAutosave, type SaveStatus } from './storage/autosave';
+import { repository } from './storage/db';
 
-/** App-Rahmen (Platzhalter). Ansichten folgen ab Meilenstein 3. */
+/**
+ * App-Rahmen. HashRouter, weil die App statisch ohne Serverkonfiguration ausgeliefert wird (ADR 0002).
+ */
 export function App() {
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>('saved');
+  useShortcuts();
+  useEffect(() => startAutosave(repository, (s) => setSaveStatus(s)), []);
+
   return (
-    <>
-      <header className="app-header">
-        <span className="app-mark" aria-hidden="true">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-            <path d="M9 1 3 9h4l-1 6 6-8H8l1-6z" />
-          </svg>
-        </span>
-        <span className="app-title">LastPlan</span>
-      </header>
-      <main className="app-main">
-        <section className="app-card" aria-labelledby="start-title">
-          <h1 id="start-title">Grundgerüst</h1>
-          <p>
-            Projektübersicht und Editor folgen ab Meilenstein 3. Projektformat-Version:{' '}
-            <span style={{ fontVariantNumeric: 'tabular-nums' }}>{CURRENT_SCHEMA_VERSION}</span>
-          </p>
-        </section>
-      </main>
-    </>
+    <HashRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <AppHeader saveStatus={saveStatus} />
+      <Routes>
+        <Route path="/" element={<ProjectList />} />
+        <Route path="/komponenten" element={<Components />} />
+        <Route path="/projekt/:id/:tab?" element={<ProjectShell />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </HashRouter>
   );
 }

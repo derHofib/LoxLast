@@ -14,3 +14,4 @@ Status „Annahme“ heißt: begründet getroffen, aber vom Auftraggeber noch ni
 | [0007](0007-berechnung-und-pruefung.md)      | Berechnung und Prüfung                                                | Angenommen |
 | [0008](0008-miniserver-anbindung.md)         | Miniserver-Anbindung: eigene Implementierung statt LxCommunicator     | Annahme    |
 | [0009](0009-gateway-sicherheit.md)           | Gateway: Kopplung, Zugangsdaten, Netzwerkschutz                       | Angenommen |
+| [0010](0010-ui-zustand-und-speicherung.md)   | Zustand, Undo/Redo und lokale Speicherung                             | Angenommen |
