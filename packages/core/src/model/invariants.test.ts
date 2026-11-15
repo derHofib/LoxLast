@@ -99,15 +99,15 @@ describe('checkProjectInvariants', () => {
   });
 
   it.each([
-    [{ minA: 5 }, 'LP01: Mindeststrom 5 A unter 6 A (IEC 61851)', 'minA'],
-    [{ minA: 20, maxA: 16 }, 'LP01: Mindeststrom 20 A über Maximalstrom 16 A', 'minA'],
-    [{ maxA: 40, fuseA: 32 }, 'LP01: Maximalstrom 40 A über Absicherung 32 A', 'maxA'],
+    [{ minA: 5 }, 'LP01: Mindeststrom 5\u00a0A unter 6\u00a0A (IEC 61851)', 'minA'],
+    [{ minA: 20, maxA: 16 }, 'LP01: Mindeststrom 20\u00a0A über Maximalstrom 16\u00a0A', 'minA'],
+    [{ maxA: 40, fuseA: 32 }, 'LP01: Maximalstrom 40\u00a0A über Absicherung 32\u00a0A', 'maxA'],
     [
       { minA: 5.5, maxA: 40, fuseA: 32 },
-      'LP01: Mindeststrom 5,5 A unter 6 A (IEC 61851); Maximalstrom 40 A über Absicherung 32 A',
+      'LP01: Mindeststrom 5,5\u00a0A unter 6\u00a0A (IEC 61851); Maximalstrom 40\u00a0A über Absicherung 32\u00a0A',
       'minA',
     ],
-  ])('prüft 6 A ≤ minA ≤ maxA ≤ fuseA: %o', (patch, message, field) => {
+  ])('prüft 6\u00a0A ≤ minA ≤ maxA ≤ fuseA: %o', (patch, message, field) => {
     const p = makeSampleProject();
     Object.assign(p.chargePoints[0] ?? {}, patch);
     expect(checkProjectInvariants(p)).toEqual([
@@ -135,7 +135,7 @@ describe('StrictProjectSchema', () => {
     expect(r.error?.issues).toMatchObject([
       {
         path: ['chargePoints', 2, 'minA'],
-        message: 'LP03: Mindeststrom 4 A unter 6 A (IEC 61851)',
+        message: 'LP03: Mindeststrom 4\u00a0A unter 6\u00a0A (IEC 61851)',
       },
     ]);
   });

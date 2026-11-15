@@ -4,7 +4,7 @@ Planungs- und Inbetriebnahme-Tool für Loxone-Lastmanagement von Ladeinfrastrukt
 
 > Unabhängiges Werkzeug, kein offizielles Loxone-Produkt.
 
-**Stand:** Meilenstein 1 – Grundgerüst (Monorepo, CI, Design-Tokens, Domänenmodell, Migrationsrahmen).
+**Stand:** Meilenstein 2 – Kernlogik (Berechnung, Prüfregeln, Simulation, Schieflast-Optimierung) auf Basis des Grundgerüsts.
 
 ## Voraussetzungen
 
