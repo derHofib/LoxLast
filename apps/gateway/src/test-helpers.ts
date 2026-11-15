@@ -23,6 +23,6 @@ export async function makeServer(over: Partial<ServerDeps> = {}) {
 
 export async function pairedToken(ctx: Awaited<ReturnType<typeof makeServer>>): Promise<string> {
   const { code } = ctx.pairing.issueCode();
-  const res = await ctx.app.inject({ method: 'POST', url: '/api/pair', payload: { code } });
+  const res = await ctx.app.inject({ method: 'POST', url: '/api/auth/pair', payload: { code } });
   return (res.json() as { token: string }).token;
 }

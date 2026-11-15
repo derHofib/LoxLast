@@ -5,11 +5,13 @@ export type Db = Database.Database;
 /** Schemaversion der Gateway-Datenbank, über `PRAGMA user_version` geführt. */
 const MIGRATIONS: readonly string[] = [
   `
+  -- tenant_id ist für den späteren Server-Betrieb vorgesehen (Kap. 12), wird noch nicht genutzt.
   CREATE TABLE credentials (
     id TEXT PRIMARY KEY,
     kind TEXT NOT NULL,
     label TEXT NOT NULL,
     has_username INTEGER NOT NULL,
+    tenant_id TEXT NOT NULL DEFAULT 'default',
     iv BLOB NOT NULL,
     tag BLOB NOT NULL,
     ciphertext BLOB NOT NULL,
@@ -19,9 +21,13 @@ const MIGRATIONS: readonly string[] = [
   CREATE TABLE changelog (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     at TEXT NOT NULL,
+    tenant_id TEXT NOT NULL DEFAULT 'default',
+    actor TEXT,
     action TEXT NOT NULL,
+    project_id TEXT,
     target TEXT,
-    detail TEXT
+    before_json TEXT,
+    after_json TEXT
   );
   CREATE TABLE tokens (
     hash TEXT PRIMARY KEY,

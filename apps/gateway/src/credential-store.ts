@@ -1,17 +1,26 @@
-import type { CredentialKind, CredentialMeta, CredentialWrite } from '@lastplan/protocol';
 import type { Db } from './db';
 import { open, seal } from './crypto';
 
+export type CredentialKind = 'miniserver' | 'device';
+
 export interface Secret {
+  host?: string;
   username?: string;
   password: string;
+}
+
+export interface CredentialMeta {
+  id: string;
+  kind: CredentialKind;
+  label: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 interface Row {
   id: string;
   kind: CredentialKind;
   label: string;
-  has_username: number;
   iv: Buffer;
   tag: Buffer;
   ciphertext: Buffer;
@@ -23,12 +32,14 @@ const toMeta = (r: Row): CredentialMeta => ({
   id: r.id,
   kind: r.kind,
   label: r.label,
-  hasUsername: r.has_username === 1,
   createdAt: r.created_at,
   updatedAt: r.updated_at,
 });
 
-/** Verschlüsselter Speicher für Miniserver-/Geräte-Zugangsdaten. Klartext verlässt nur `getSecret`. */
+/**
+ * Verschlüsselter Speicher für Miniserver-/Geräte-Zugangsdaten (Kap. 12).
+ * Klartext verlässt nur `getSecret` (für Hardware-Clients im Gateway), nie die API.
+ */
 export class CredentialStore {
   constructor(
     private readonly db: Db,
@@ -36,13 +47,18 @@ export class CredentialStore {
     private readonly now: () => Date = () => new Date(),
   ) {}
 
-  set(id: string, input: CredentialWrite): { meta: CredentialMeta; created: boolean } {
+  set(
+    id: string,
+    kind: CredentialKind,
+    label: string,
+    secret: Secret,
+  ): { meta: CredentialMeta; created: boolean } {
     const ts = this.now().toISOString();
-    const payload: Secret = { password: input.password };
-    if (input.username !== undefined) payload.username = input.username;
+    const payload: Secret = { password: secret.password };
+    if (secret.host !== undefined) payload.host = secret.host;
+    if (secret.username !== undefined) payload.username = secret.username;
     const sealed = seal(this.key, JSON.stringify(payload), id);
-    const existing = this.db.prepare('SELECT created_at FROM credentials WHERE id = ?').get(id) as
-      { created_at: string } | undefined;
+    const existing = this.getMeta(id);
     this.db
       .prepare(
         `INSERT INTO credentials (id, kind, label, has_username, iv, tag, ciphertext, created_at, updated_at)
@@ -50,14 +66,7 @@ export class CredentialStore {
          ON CONFLICT(id) DO UPDATE SET kind=@kind, label=@label, has_username=@hasUsername,
            iv=@iv, tag=@tag, ciphertext=@ciphertext, updated_at=@ts`,
       )
-      .run({
-        id,
-        kind: input.kind,
-        label: input.label,
-        hasUsername: input.username !== undefined ? 1 : 0,
-        ...sealed,
-        ts,
-      });
+      .run({ id, kind, label, hasUsername: secret.username !== undefined ? 1 : 0, ...sealed, ts });
     return { meta: this.getMeta(id) as CredentialMeta, created: existing === undefined };
   }
 
@@ -67,11 +76,6 @@ export class CredentialStore {
     return row && toMeta(row);
   }
 
-  list(): CredentialMeta[] {
-    return (this.db.prepare('SELECT * FROM credentials ORDER BY id').all() as Row[]).map(toMeta);
-  }
-
-  /** Nur für Geräte-/Miniserver-Clients im Gateway, nie über die API. */
   getSecret(id: string): Secret | undefined {
     const row = this.db.prepare('SELECT * FROM credentials WHERE id = ?').get(id) as
       Row | undefined;

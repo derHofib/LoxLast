@@ -59,6 +59,11 @@ export class PairingService {
     return { token, expiresAt };
   }
 
+  /** Pseudonym der Sitzung für das Änderungsprotokoll („wer“): Kurzform des Token-Hashes. */
+  actorOf(token: string): string {
+    return `sitzung-${sha256(token).slice(0, 8)}`;
+  }
+
   verify(token: string): boolean {
     const row = this.db
       .prepare('SELECT expires_at FROM tokens WHERE hash = ?')

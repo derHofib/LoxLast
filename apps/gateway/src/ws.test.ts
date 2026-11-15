@@ -13,7 +13,7 @@ async function connect(): Promise<{
   closed: Promise<number>;
 }> {
   const address = await ctx.app.listen({ port: 0, host: '127.0.0.1' });
-  const ws = new WebSocket(address.replace('http', 'ws') + '/api/live');
+  const ws = new WebSocket(address.replace('http', 'ws') + '/ws');
   const queue: ServerMessage[] = [];
   const waiters: ((m: ServerMessage) => void)[] = [];
   ws.on('message', (d) => {
@@ -36,7 +36,7 @@ async function connect(): Promise<{
   };
 }
 
-describe('WebSocket /api/live', () => {
+describe('WebSocket /ws', () => {
   it('auth → ready → ping/pong', async () => {
     ctx = await makeServer();
     const token = await pairedToken(ctx);
@@ -66,5 +66,28 @@ describe('WebSocket /api/live', () => {
     c.ws.send(JSON.stringify({ type: 'ping' }));
     expect(await c.next()).toMatchObject({ type: 'error', code: 'unauthorized' });
     expect(await c.closed).toBe(4401);
+  });
+
+  it('fremde Origin wird nach dem Upgrade mit 4403 geschlossen', async () => {
+    ctx = await makeServer();
+    const address = await ctx.app.listen({ port: 0, host: '127.0.0.1' });
+    const ws = new WebSocket(address.replace('http', 'ws') + '/ws', {
+      origin: 'https://evil.example',
+    });
+    const messages: string[] = [];
+    ws.on('message', (d) => messages.push(d.toString()));
+    const code = await new Promise<number>((res) => ws.on('close', (c) => res(c)));
+    expect(code).toBe(4403);
+    expect(messages[0]).toContain('forbidden_origin');
+  });
+
+  it('freigegebene Origin darf verbinden', async () => {
+    ctx = await makeServer();
+    const address = await ctx.app.listen({ port: 0, host: '127.0.0.1' });
+    const ws = new WebSocket(address.replace('http', 'ws') + '/ws', {
+      origin: 'http://localhost:5173',
+    });
+    await new Promise((res) => ws.on('open', res));
+    ws.close();
   });
 });

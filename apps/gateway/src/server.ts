@@ -5,30 +5,35 @@ import websocket from '@fastify/websocket';
 import {
   ChangelogQuerySchema,
   ClientMessageSchema,
-  CredentialIdSchema,
-  CredentialWriteSchema,
+  MiniserverConfigRequestSchema,
   PairRequestSchema,
+  ProjectIdSchema,
   WS_AUTH_TIMEOUT_MS,
+  WS_PATH,
   type ChangelogResponse,
-  type CredentialListResponse,
   type ErrorCode,
   type ErrorResponse,
   type HealthResponse,
+  type MiniserverConfigResponse,
+  type MiniserverStatus,
   type ServerMessage,
   type TokenResponse,
 } from '@lastplan/protocol';
 import type { Changelog } from './changelog';
+import type { MiniserverClient } from './clients/types';
 import type { CredentialStore } from './credential-store';
-import type { PairingService } from './pairing';
-import { type IssuedToken } from './pairing';
+import type { IssuedToken, PairingService } from './pairing';
 
 export const GATEWAY_VERSION = '0.1.0';
+export const MINISERVER_CREDENTIAL_ID = 'miniserver';
 
 export interface ServerDeps {
   allowedOrigins: string[];
   pairing: PairingService;
   credentials: CredentialStore;
   changelog: Changelog;
+  /** Fehlt der Client (noch keine echte Implementierung), meldet die API „getrennt“. */
+  miniserver?: MiniserverClient;
   /** Anfragen pro Minute und IP (global). Standard 120. */
   rateLimitPerMinute?: number;
   /** Pairing-Versuche pro Minute und IP. Standard 5. */
@@ -47,11 +52,11 @@ function bearer(req: FastifyRequest): string | undefined {
 }
 
 export async function buildServer(deps: ServerDeps): Promise<FastifyInstance> {
-  const app = Fastify({ logger: false });
+  const app = Fastify({ logger: false, forceCloseConnections: true });
   const allowed = new Set(deps.allowedOrigins);
 
   // CORS: nur exakt freigegebene Origins. Anfragen ohne Origin (curl, gleiche Herkunft) bleiben möglich;
-  // geschützte Routen verlangen trotzdem ein Token.
+  // geschützte Routen verlangen trotzdem ein Token. Der Hook gilt auch für den WebSocket-Upgrade.
   await app.register(cors, {
     origin: (origin, cb) => cb(null, origin === undefined || allowed.has(origin)),
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
@@ -60,6 +65,8 @@ export async function buildServer(deps: ServerDeps): Promise<FastifyInstance> {
   });
   app.addHook('onRequest', async (req, reply) => {
     const origin = req.headers.origin;
+    // WebSocket-Upgrades prüft der Handler selbst (sauberer Close-Code statt hängender Upgrade-Antwort).
+    if (req.headers.upgrade?.toLowerCase() === 'websocket') return undefined;
     if (origin !== undefined && !allowed.has(origin)) {
       return reply
         .code(403)
@@ -104,6 +111,10 @@ export async function buildServer(deps: ServerDeps): Promise<FastifyInstance> {
         );
     }
   };
+  const actor = (req: FastifyRequest): string | undefined => {
+    const token = bearer(req);
+    return token ? deps.pairing.actorOf(token) : undefined;
+  };
 
   app.get('/api/health', async (): Promise<HealthResponse> => ({
     status: 'ok',
@@ -112,7 +123,7 @@ export async function buildServer(deps: ServerDeps): Promise<FastifyInstance> {
   }));
 
   app.post(
-    '/api/pair',
+    '/api/auth/pair',
     { config: { rateLimit: { max: deps.pairingAttemptsPerMinute ?? 5, timeWindow: '1 minute' } } },
     async (req, reply) => {
       const body = PairRequestSchema.safeParse(req.body);
@@ -132,72 +143,111 @@ export async function buildServer(deps: ServerDeps): Promise<FastifyInstance> {
             ),
           );
       }
-      deps.changelog.record('pairing.success', null, { ip: req.ip });
+      deps.changelog.record({
+        action: 'pairing.success',
+        actor: deps.pairing.actorOf(issued.token),
+      });
       return toTokenResponse(issued);
     },
   );
 
-  app.post('/api/token/refresh', { preHandler: requireAuth }, async (req, reply) => {
-    const issued = deps.pairing.refresh(bearer(req) as string);
+  app.post('/api/auth/refresh', { preHandler: requireAuth }, async (req, reply) => {
+    const old = bearer(req) as string;
+    const issued = deps.pairing.refresh(old);
     if (!issued)
       return reply.code(401).send(err('unauthorized', 'Token abgelaufen. Gateway neu koppeln.'));
-    deps.changelog.record('token.refresh');
+    deps.changelog.record({ action: 'token.refresh', actor: deps.pairing.actorOf(issued.token) });
     return toTokenResponse(issued);
   });
 
-  app.get(
-    '/api/credentials',
-    { preHandler: requireAuth },
-    async (): Promise<CredentialListResponse> => ({
-      credentials: deps.credentials.list(),
-    }),
-  );
+  // Miniserver-Zugang: Passwort wird nur geschrieben, nie zurückgegeben (Kap. 12).
+  app.post('/api/miniserver', { preHandler: requireAuth }, async (req, reply) => {
+    const body = MiniserverConfigRequestSchema.safeParse(req.body);
+    if (!body.success) {
+      return reply
+        .code(400)
+        .send(err('invalid_request', body.error.issues[0]?.message ?? 'Eingabe ungültig.'));
+    }
+    const { host, user, password } = body.data;
+    const { created } = deps.credentials.set(MINISERVER_CREDENTIAL_ID, 'miniserver', host, {
+      host,
+      username: user,
+      password,
+    });
+    deps.changelog.record({
+      action: 'miniserver.configure',
+      actor: actor(req),
+      target: MINISERVER_CREDENTIAL_ID,
+      after: { host, user, created },
+    });
+    const res: MiniserverConfigResponse = { configured: true, host, user };
+    return reply.code(created ? 201 : 200).send(res);
+  });
 
-  app.put<{ Params: { id: string } }>(
-    '/api/credentials/:id',
+  app.get(
+    '/api/miniserver/status',
     { preHandler: requireAuth },
-    async (req, reply) => {
-      const id = CredentialIdSchema.safeParse(req.params.id);
-      const body = CredentialWriteSchema.safeParse(req.body);
-      if (!id.success || !body.success) {
-        return reply.code(400).send(err('invalid_request', 'ID oder Zugangsdaten ungültig.'));
-      }
-      const { meta, created } = deps.credentials.set(id.data, body.data);
-      // Nur Metadaten ins Protokoll – nie das Passwort.
-      deps.changelog.record('credential.set', id.data, { kind: meta.kind, created });
-      return reply.code(created ? 201 : 200).send(meta);
+    async (): Promise<MiniserverStatus & { configured: boolean }> => {
+      const configured = deps.credentials.getMeta(MINISERVER_CREDENTIAL_ID) !== undefined;
+      const state = deps.miniserver?.state ?? 'disconnected';
+      // Zeitstempel letzter Werte und Fehlerzustand kommen mit der echten Implementierung (Meilenstein 9).
+      return { state, lastValuesAt: null, configured };
     },
   );
 
-  app.delete<{ Params: { id: string } }>(
-    '/api/credentials/:id',
-    { preHandler: requireAuth },
-    async (req, reply) => {
-      const id = CredentialIdSchema.safeParse(req.params.id);
-      if (!id.success) return reply.code(400).send(err('invalid_request', 'ID ungültig.'));
-      if (!deps.credentials.delete(id.data)) {
-        return reply.code(404).send(err('not_found', 'Zugangsdaten nicht gefunden.'));
-      }
-      deps.changelog.record('credential.delete', id.data);
-      return reply.code(204).send();
-    },
-  );
-
-  app.get(
-    '/api/changelog',
+  app.get<{ Params: { id: string } }>(
+    '/api/projects/:id/changelog',
     { preHandler: requireAuth },
     async (req, reply): Promise<ChangelogResponse | undefined> => {
+      const id = ProjectIdSchema.safeParse(req.params.id);
       const q = ChangelogQuerySchema.safeParse(req.query);
-      if (!q.success) {
-        await reply.code(400).send(err('invalid_request', 'Ungültige Abfrage (limit 1–500).'));
+      if (!id.success || !q.success) {
+        await reply
+          .code(400)
+          .send(err('invalid_request', 'Projekt-ID oder Abfrage ungültig (limit 1–500).'));
         return undefined;
       }
-      return { entries: deps.changelog.list(q.data.limit, q.data.beforeId) };
+      return {
+        entries: deps.changelog.list({
+          limit: q.data.limit,
+          beforeId: q.data.beforeId,
+          projectId: id.data,
+        }),
+      };
     },
+  );
+
+  // Spezifiziert (packages/protocol), aber erst mit Hardware bzw. Meilenstein 9 umsetzbar.
+  const notImplemented = async (_req: FastifyRequest, reply: FastifyReply): Promise<void> => {
+    await reply
+      .code(501)
+      .send(
+        err('not_implemented', 'Noch nicht verfügbar: benötigt Test-Wallbox bzw. Test-Miniserver.'),
+      );
+  };
+  app.post('/api/devices/test', { preHandler: requireAuth }, notImplemented);
+  app.get('/api/projects/:id/live', { preHandler: requireAuth }, notImplemented);
+  app.post('/api/projects/:id/parameters', { preHandler: requireAuth }, notImplemented);
+  app.post(
+    '/api/projects/:id/changelog/:entryId/revert',
+    { preHandler: requireAuth },
+    notImplemented,
   );
 
   // WebSocket: erste Nachricht muss `auth` sein (Token nie in der URL).
-  app.get('/api/live', { websocket: true }, (socket) => {
+  app.get(WS_PATH, { websocket: true }, (socket, req) => {
+    const origin = req.headers.origin;
+    if (origin !== undefined && !allowed.has(origin)) {
+      socket.send(
+        JSON.stringify({
+          type: 'error',
+          code: 'forbidden_origin',
+          message: `Origin „${origin}“ ist nicht freigegeben.`,
+        } satisfies ServerMessage),
+      );
+      socket.close(4403, 'forbidden_origin');
+      return;
+    }
     let authed = false;
     const send = (m: ServerMessage): void => socket.send(JSON.stringify(m));
     const timer = setTimeout(() => {

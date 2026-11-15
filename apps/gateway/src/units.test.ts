@@ -8,6 +8,7 @@ import { open, seal } from './crypto';
 import { openDb } from './db';
 import { CredentialStore } from './credential-store';
 import { PairingService } from './pairing';
+import { backoffDelayMs } from './backoff';
 import { MockMiniserverClient, MockModbusClient } from './clients/mocks';
 
 const KEY = 'ab'.repeat(32);
@@ -28,8 +29,8 @@ describe('CredentialStore', () => {
   it('vertauschte Zeilen werden erkannt', () => {
     const db = openDb(':memory:');
     const store = new CredentialStore(db, randomBytes(32));
-    store.set('a', { kind: 'device', label: 'A', password: 'pa' });
-    store.set('b', { kind: 'device', label: 'B', password: 'pb' });
+    store.set('a', 'device', 'A', { password: 'pa' });
+    store.set('b', 'device', 'B', { password: 'pb' });
     const rowA = db
       .prepare("SELECT iv, tag, ciphertext FROM credentials WHERE id='a'")
       .get() as Record<string, Buffer>;
@@ -40,6 +41,8 @@ describe('CredentialStore', () => {
     );
     expect(() => store.getSecret('b')).toThrow();
     expect(store.getSecret('unbekannt')).toBeUndefined();
+    expect(store.delete('a')).toBe(true);
+    expect(store.delete('a')).toBe(false);
   });
 });
 
@@ -145,5 +148,18 @@ describe('Mocks', () => {
     await expect(ms.readValue('nope')).rejects.toThrow();
     await ms.disconnect();
     expect(ms.state).toBe('disconnected');
+  });
+});
+
+describe('Backoff', () => {
+  it('verdoppelt bis zur Obergrenze', () => {
+    expect([0, 1, 2, 3, 10].map((a) => backoffDelayMs(a))).toEqual([1000, 2000, 4000, 8000, 30000]);
+    expect(backoffDelayMs(2, { baseMs: 500, maxMs: 1500 })).toBe(1500);
+    expect(backoffDelayMs(0, { jitter: 0.5 })).toBe(750);
+    expect(backoffDelayMs(1000)).toBe(30000);
+  });
+  it('lehnt ungültige Versuche ab', () => {
+    expect(() => backoffDelayMs(-1)).toThrow(RangeError);
+    expect(() => backoffDelayMs(1.5)).toThrow(RangeError);
   });
 });

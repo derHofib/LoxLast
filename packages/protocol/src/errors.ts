@@ -8,6 +8,7 @@ export const ErrorCodeSchema = z.enum([
   'pairing_code_invalid',
   'rate_limited',
   'not_found',
+  'not_implemented',
   'internal_error',
 ]);
 export type ErrorCode = z.infer<typeof ErrorCodeSchema>;
