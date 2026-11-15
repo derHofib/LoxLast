@@ -16,7 +16,7 @@ Planungs- und Inbetriebnahme-Tool für Loxone-Lastmanagement von Ladeinfrastrukt
 ```bash
 pnpm install
 pnpm dev            # Web-App auf http://localhost:5173
-pnpm dev:gateway    # Gateway auf http://127.0.0.1:8787 (derzeit nur /api/health)
+pnpm dev:gateway    # Gateway auf http://127.0.0.1:8787; gibt beim Start einen Kopplungscode aus
 ```
 
 | Befehl                      | Zweck                                                      |
@@ -59,3 +59,14 @@ Alle Typen werden aus Zod-Schemas abgeleitet (`packages/core/src/model`). Ström
 
 - Nichts erfinden: Modbus-Register, Loxone-XML und Miniserver-API nur aus gelieferten Unterlagen. Fehlendes wird als `TODO(verify)` markiert und blockiert den Export.
 - Oberfläche, Fachkommentare und Doku auf Deutsch, Code-Bezeichner auf Englisch.
+
+## Gateway starten (Docker)
+
+```bash
+cp .env.example .env                              # ggf. anpassen
+docker compose --profile local up --build         # Laptop im Anlagennetz, nur localhost
+docker compose --profile server up --build -d     # VPS: GATEWAY_SECRET_KEY und GATEWAY_ALLOWED_ORIGINS Pflicht
+docker compose logs gateway-local | grep Kopplungscode
+```
+
+Sicherheitskonzept: [ADR 0009](docs/adr/0009-gateway-sicherheit.md), Miniserver-Anbindung: [ADR 0008](docs/adr/0008-miniserver-anbindung.md).
