@@ -1,6 +1,6 @@
 # 0002 – Auslieferung der Web-App und Speicherung der Projekte
 
-**Status:** Angenommen, Punkt „GitHub als Quelle“ noch zu präzisieren · 2026-11-15
+**Status:** Angenommen, Veröffentlichungsort der Bibliothek offen · 2026-11-15
 
 ## Kontext
 
@@ -16,10 +16,15 @@ Kap. 2.1 beschreibt eine Browser-App mit IndexedDB und ein optionales Gateway. O
 ## Rückmeldung Auftraggeber (2026-11-15)
 
 - Zunächst statisch/lokal: bestätigt.
-- „Später soll es sich die Informationen über GitHub ziehen können.“ Daraus folgt für die Architektur:
-  - Die Web-App bleibt eine rein statische SPA ohne Serverabhängigkeit und lässt sich daher direkt aus dem GitHub-Repo bauen und ausliefern (z. B. GitHub Pages oder ein Release-Artefakt).
-  - Die Wallbox-Bibliothek bleibt eine Sammlung versionierter JSON-Dateien mit JSON-Schema (Kap. 6). Damit kann die App später eine aktuellere Bibliothek aus dem Repo nachladen, ohne neu ausgeliefert zu werden. Nachgeladene Dateien werden vor der Verwendung gegen das Schema geprüft; unvollständige Modelle bleiben für den Export gesperrt.
-  - TODO(verify): Welche Informationen genau aus GitHub kommen sollen (App-Updates, Wallbox-Bibliothek, Projektvorlagen) und ob das Repo dafür öffentlich ist oder ein Token braucht. Entscheidung als eigener ADR, spätestens in Meilenstein 5.
+- „Später soll es sich die Informationen über GitHub ziehen können“ – präzisiert: Es geht um die **Wallbox-Bibliothek mit den Modbus-Registern**, die zentral auf GitHub gepflegt und von dort bezogen werden soll.
+
+## Entscheidung Wallbox-Bibliothek
+
+- **Quelle der Wahrheit** ist dieses Repo: `packages/wallbox-library/models/<hersteller>/<modell>@<version>.json`, jede Datei mit Quellenangabe je Register (Kap. 6). Änderungen laufen über Pull Requests; die CI prüft jede Datei gegen das JSON-Schema.
+- **Beim Build** wird die Bibliothek in die App eingebettet. Die App funktioniert damit offline und vor Ort ohne Internet.
+- **Aktualisierung zur Laufzeit** (später): Die CI veröffentlicht bei jedem Merge auf `main` ein Bibliotheks-Paket (`index.json` mit Versionsnummer und Prüfsumme + Modelldateien) als statische Dateien. Die App prüft auf Wunsch, ob eine neuere Version vorliegt, lädt sie, validiert jede Datei gegen das Schema und speichert sie in IndexedDB. Ungültige oder unvollständige Modelle werden nicht übernommen bzw. bleiben für den Export gesperrt.
+- **Kein GitHub-Token im Browser.** Ein privates Repo könnte der Browser nur mit Token lesen; das wäre nicht sicher. Daher muss der Veröffentlichungsort öffentlich lesbar sein (z. B. GitHub Pages oder ein öffentliches Release), oder das Gateway lädt die Bibliothek stellvertretend.
+- TODO(verify): Bleibt `derHofib/LoxLast` privat? Dann entweder Bibliothek über GitHub Pages/öffentliches Release veröffentlichen oder in ein eigenes öffentliches Repo auslagern. Entscheidung spätestens in Meilenstein 5.
 
 ## Folgen
 
