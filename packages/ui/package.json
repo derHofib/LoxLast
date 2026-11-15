@@ -9,11 +9,21 @@
   ],
   "exports": {
     ".": "./src/index.ts",
-    "./tokens.css": "./src/tokens.css"
+    "./tokens.css": "./src/tokens.css",
+    "./ui.css": "./src/ui.css"
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json",
     "gen:css": "node --experimental-strip-types scripts/generate-css.ts"
   },
-  "dependencies": {}
+  "devDependencies": {
+    "@testing-library/react": "^16.3.3",
+    "@types/react": "^18.3.31",
+    "@vitejs/plugin-react": "^4.7.0",
+    "jsdom": "^26.1.0",
+    "react": "^18.3.1"
+  },
+  "peerDependencies": {
+    "react": "^18.3.1"
+  }
 }

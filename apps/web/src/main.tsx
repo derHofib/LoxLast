@@ -5,6 +5,7 @@ import '@fontsource/source-sans-3/400.css';
 import '@fontsource/source-sans-3/600.css';
 import '@fontsource/source-sans-3/700.css';
 import '@lastplan/ui/tokens.css';
+import '@lastplan/ui/ui.css';
 import './global.css';
 import { App } from './App';
 
