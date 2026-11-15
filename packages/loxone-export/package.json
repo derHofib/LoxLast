@@ -1,0 +1,17 @@
+{
+  "name": "@lastplan/loxone-export",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Generator für Loxone-Vorlagen und Ergänzung von .Loxone-Projektdateien (läuft im Browser)",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@lastplan/core": "workspace:*"
+  }
+}

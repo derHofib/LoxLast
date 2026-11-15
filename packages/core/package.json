@@ -1,0 +1,18 @@
+{
+  "name": "@lastplan/core",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Domänenmodell, Berechnung, Prüfregeln und Simulation – ohne UI- und Node-Abhängigkeiten",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "uuid": "^11.1.0",
+    "zod": "^4.1.0"
+  }
+}

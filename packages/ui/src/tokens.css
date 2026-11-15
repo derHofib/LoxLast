@@ -1,0 +1,82 @@
+/* Automatisch erzeugt aus src/tokens.ts – nicht von Hand bearbeiten (pnpm --filter @lastplan/ui gen:css). */
+
+:root {
+  --color-bg: #F4F3F1;
+  --color-surface: #FFFFFF;
+  --color-surface-sub: #FAF9F7;
+  --color-surface-muted: #F4F3F1;
+  --color-border: #E3E0DB;
+  --color-border-strong: #D6D2CC;
+  --color-border-block: #CFCAC3;
+  --color-text: #262524;
+  --color-text-muted: #5E5A54;
+  --color-text-on-accent: #1C1B1A;
+  --color-accent: #6DBE45;
+  --color-track: #E8E5E0;
+  --color-error: #C2410C;
+  --color-error-text: #9A3412;
+  --color-error-bg: #FDF4EF;
+  --color-error-border: #F0C9B4;
+  --color-warning: #B7791F;
+  --color-warning-text: #7A5200;
+  --color-warning-bg: #FBF5E6;
+  --color-io-input: #2F6FB0;
+  --color-io-output: #4E9A2A;
+  --color-io-param: #8A847C;
+  --font-sans: 'Source Sans 3', system-ui, sans-serif;
+  --fs-xs: 12px;
+  --fs-sm: 13px;
+  --fs-md: 14px;
+  --fs-base: 15px;
+  --fs-lg: 16px;
+  --fs-xl: 17px;
+  --fs-2xl: 22px;
+  --fs-kpi: 28px;
+  --fw-regular: 400;
+  --fw-semibold: 600;
+  --fw-bold: 700;
+  --radius-pill: 999px;
+  --radius-card: 16px;
+  --radius-md: 12px;
+  --radius-sm: 10px;
+  --radius-xs: 8px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 28px;
+  --space-8: 32px;
+  --header-height: 64px;
+  --control-height: 44px;
+  --control-height-sm: 40px;
+  --shadow-block: 0 1px 2px rgba(38,37,36,.06);
+}
+
+/* Dark Mode vorbereitet, Umsetzung in Meilenstein 10. */
+
+:root[data-theme="dark"] {
+  --color-bg: #F4F3F1;
+  --color-surface: #FFFFFF;
+  --color-surface-sub: #FAF9F7;
+  --color-surface-muted: #F4F3F1;
+  --color-border: #E3E0DB;
+  --color-border-strong: #D6D2CC;
+  --color-border-block: #CFCAC3;
+  --color-text: #262524;
+  --color-text-muted: #5E5A54;
+  --color-text-on-accent: #1C1B1A;
+  --color-accent: #6DBE45;
+  --color-track: #E8E5E0;
+  --color-error: #C2410C;
+  --color-error-text: #9A3412;
+  --color-error-bg: #FDF4EF;
+  --color-error-border: #F0C9B4;
+  --color-warning: #B7791F;
+  --color-warning-text: #7A5200;
+  --color-warning-bg: #FBF5E6;
+  --color-io-input: #2F6FB0;
+  --color-io-output: #4E9A2A;
+  --color-io-param: #8A847C;
+}
