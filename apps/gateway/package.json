@@ -1,0 +1,21 @@
+{
+  "name": "@lastplan/gateway",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Gateway für Modbus/HTTP-Geräte und Miniserver-Anbindung (ab Meilenstein 8)",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/main.ts",
+    "build": "tsup",
+    "start": "node dist/main.js",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@lastplan/protocol": "workspace:*",
+    "fastify": "^5.6.0"
+  },
+  "devDependencies": {
+    "tsup": "^8.5.0",
+    "tsx": "^4.20.0"
+  }
+}
