@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { checkModel } from './validate';
 import { checkModelFile, loadLibrary, type ModelFile } from './loader';
 import { REGISTER_ROLES } from './model';
+import { toModelCatalog } from './catalog';
 
 const MODELS_DIR = fileURLToPath(new URL('../models/', import.meta.url));
 
@@ -249,5 +250,37 @@ describe('checkModelFile und loadLibrary', () => {
     const result = loadLibrary([withFile('test-hersteller/testmodell@1.json', data)]);
     expect(result.ok).toBe(true);
     expect(result.models[0]?.status).toBe('incomplete');
+  });
+});
+
+describe('toModelCatalog', () => {
+  it('führt ungültige Modelle nicht und markiert unvollständige mit fehlenden Feldern', () => {
+    const complete = withFile('test-hersteller/testmodell@1.json', completeModel());
+    const broken = withFile('test-hersteller/kaputt@1.json', { id: 'test-hersteller/kaputt@1' });
+    const incompleteData = completeModel();
+    incompleteData['id'] = 'test-hersteller/teil@1';
+    (incompleteData['electrical'] as Record<string, unknown>)['maxA'] = 'TODO';
+    const incomplete = withFile('test-hersteller/teil@1.json', incompleteData);
+
+    const catalog = toModelCatalog(loadLibrary([complete, broken, incomplete]));
+    expect(catalog.get('test-hersteller/kaputt@1')).toBeUndefined();
+
+    const done = catalog.get('test-hersteller/testmodell@1');
+    expect(done?.complete).toBe(true);
+    expect(done?.missingFields).toEqual([]);
+    expect(done?.electrical).toEqual({ minA: 6, maxA: 32, phases: [1, 3], phaseSwitching: false });
+
+    const partial = catalog.get('test-hersteller/teil@1');
+    expect(partial?.complete).toBe(false);
+    expect(partial?.missingFields).toEqual(['electrical.maxA']);
+    expect(partial?.electrical.maxA).toBeNull();
+  });
+
+  it('die ABL-Vorlage ist im Katalog unvollständig mit allen Registerfeldern', () => {
+    const catalog = toModelCatalog(loadLibrary(readRepoModels()));
+    const abl = catalog.get('abl/em4-twin@1');
+    expect(abl?.complete).toBe(false);
+    expect(abl?.missingFields).toContain('modbus.registers.power.address');
+    expect(abl?.electrical.minA).toBeNull();
   });
 });

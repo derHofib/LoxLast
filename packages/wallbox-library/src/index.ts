@@ -7,3 +7,4 @@
 export * from './model';
 export * from './validate';
 export * from './loader';
+export * from './catalog';
