@@ -45,7 +45,7 @@ packages/
 docs/adr/           Architekturentscheidungen
 ```
 
-Details und Begründungen: [docs/adr](docs/adr/README.md).
+Details und Begründungen: [docs/adr](docs/adr/README.md). Gesamtplan: [docs/umsetzungsplan.md](docs/umsetzungsplan.md).
 
 ### Domänenmodell
 
