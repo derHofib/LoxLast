@@ -1,6 +1,6 @@
 # 0002 – Auslieferung der Web-App und Speicherung der Projekte
 
-**Status:** Angenommen, Veröffentlichungsort der Bibliothek offen · 2026-11-15
+**Status:** Angenommen · 2026-11-15
 
 ## Kontext
 
@@ -24,7 +24,7 @@ Kap. 2.1 beschreibt eine Browser-App mit IndexedDB und ein optionales Gateway. O
 - **Beim Build** wird die Bibliothek in die App eingebettet. Die App funktioniert damit offline und vor Ort ohne Internet.
 - **Aktualisierung zur Laufzeit** (später): Die CI veröffentlicht bei jedem Merge auf `main` ein Bibliotheks-Paket (`index.json` mit Versionsnummer und Prüfsumme + Modelldateien) als statische Dateien. Die App prüft auf Wunsch, ob eine neuere Version vorliegt, lädt sie, validiert jede Datei gegen das Schema und speichert sie in IndexedDB. Ungültige oder unvollständige Modelle werden nicht übernommen bzw. bleiben für den Export gesperrt.
 - **Kein GitHub-Token im Browser.** Ein privates Repo könnte der Browser nur mit Token lesen; das wäre nicht sicher. Daher muss der Veröffentlichungsort öffentlich lesbar sein (z. B. GitHub Pages oder ein öffentliches Release), oder das Gateway lädt die Bibliothek stellvertretend.
-- TODO(verify): Bleibt `derHofib/LoxLast` privat? Dann entweder Bibliothek über GitHub Pages/öffentliches Release veröffentlichen oder in ein eigenes öffentliches Repo auslagern. Entscheidung spätestens in Meilenstein 5.
+- Das Repo `derHofib/LoxLast` ist öffentlich (Stand 2026-11-15), die Veröffentlichung braucht also kein Token. Geladen wird nur das von der CI erzeugte Paket aus `main` (z. B. über GitHub Pages), nicht direkt aus beliebigen Branches. Konkrete Umsetzung in Meilenstein 5.
 
 ## Folgen
 
