@@ -28,15 +28,15 @@ describe('Button', () => {
 
 describe('Felder', () => {
   it('verknüpft Label, Fehler und zeigt „Geändert“', () => {
-    render(<TextField label="Name" error="Pflichtfeld" changed />);
+    render(<TextField label="Name" error="Pflichtfeld" />);
     const input = screen.getByLabelText(/Name/);
     expect(input.getAttribute('aria-invalid')).toBe('true');
     expect(input.getAttribute('aria-describedby')).toBeTruthy();
     expect(screen.getByRole('alert').textContent).toBe('Pflichtfeld');
-    expect(screen.getByText('Geändert')).toBeTruthy();
   });
   it('Zahlenfeld zeigt Einheit', () => {
-    render(<NumberField label="Limit" unit="A" defaultValue={32} />);
+    render(<NumberField label="Limit" unit="A" defaultValue={32} change={{ from: 48, to: 56 }} />);
+    expect(screen.getByText('Geändert: 48 → 56 A')).toBeTruthy();
     expect(screen.getByLabelText('Limit')).toHaveProperty('type', 'number');
     expect(screen.getByText('A')).toBeTruthy();
   });
@@ -65,11 +65,11 @@ describe('Anzeige', () => {
     render(
       <Card title="Anlage">
         <KpiTile label="Limit" value={250} unit="A" />
-        <StatusBadge status="warning">Prüfen</StatusBadge>
+        <StatusBadge status="active">Aktiv</StatusBadge>
       </Card>,
     );
     expect(screen.getByRole('heading', { name: 'Anlage' })).toBeTruthy();
-    expect(screen.getByText('Prüfen')).toBeTruthy();
+    expect(screen.getByText('Aktiv')).toBeTruthy();
   });
   it('ProgressBar nennt Zustand als Text', () => {
     render(<ProgressBar label="Auslastung" value={100} max={100} />);
@@ -79,6 +79,7 @@ describe('Anzeige', () => {
   it('Notice zeigt Lösung, Fehler als alert', () => {
     render(<Notice kind="error" title="Import fehlgeschlagen" solution="Datei prüfen" />);
     expect(screen.getByRole('alert').textContent).toContain('Lösung: Datei prüfen');
+    expect(screen.getByRole('alert').textContent).toContain('Fehler: ');
   });
 });
 

@@ -14,4 +14,4 @@
 
 ## Folgen
 
-Texteingaben committen beim Verlassen des Feldes (ein Undo-Schritt pro Änderung, nicht pro Tastendruck). Playwright/E2E (AP 3.7) und axe-Prüfung (AP 3.8) sind noch offen.
+Texteingaben committen beim Verlassen des Feldes (ein Undo-Schritt pro Änderung, nicht pro Tastendruck). Der Speicherstatus unterscheidet „Ungespeicherte Änderungen“ von „Gespeichert“; beim Verlassen der Seite (`pagehide`) wird sofort geschrieben. E2E (Playwright) und axe-Prüfung laufen als eigener CI-Job.

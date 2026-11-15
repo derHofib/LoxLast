@@ -40,7 +40,17 @@ export function startAutosave(
     }
   });
 
+  // Beim Verlassen der Seite sofort schreiben (best effort), damit die Entprellung nichts verschluckt
+  const onHide = () => {
+    if (timer) {
+      clearTimeout(timer);
+      void flush();
+    }
+  };
+  window.addEventListener('pagehide', onHide);
+
   return () => {
+    window.removeEventListener('pagehide', onHide);
     unsubscribe();
     if (timer) {
       clearTimeout(timer);

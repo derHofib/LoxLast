@@ -5,11 +5,13 @@ export interface KpiTileProps {
   value: ReactNode;
   unit?: string;
   sub?: ReactNode;
+  /** Oberkante: grün (Standard) bzw. orange bei Störung. */
+  tone?: 'ok' | 'warning';
 }
 
-export function KpiTile({ label, value, unit, sub }: KpiTileProps) {
+export function KpiTile({ label, value, unit, sub, tone = 'ok' }: KpiTileProps) {
   return (
-    <div className="lp-kpi">
+    <div className={`lp-kpi lp-kpi--${tone}`}>
       <div className="lp-kpi__label">{label}</div>
       <div className="lp-kpi__value">
         {value}

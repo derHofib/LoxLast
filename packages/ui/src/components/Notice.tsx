@@ -1,6 +1,13 @@
 import type { ReactNode } from 'react';
 
-export type NoticeKind = 'error' | 'warning' | 'info';
+export type NoticeKind = 'error' | 'warning' | 'info' | 'ok';
+
+const STAGE_WORD: Record<NoticeKind, string> = {
+  error: 'Fehler',
+  warning: 'Hinweis',
+  info: 'Hinweis',
+  ok: 'OK',
+};
 
 export interface NoticeProps {
   kind: NoticeKind;
@@ -9,7 +16,7 @@ export interface NoticeProps {
   /** Lösungsvorschlag – Fehlermeldungen nennen immer einen Ausweg (Kap. 1). */
   solution?: string;
   actions?: ReactNode;
-  /** Banner = volle Breite, z. B. für Verbindungs-/Speicherstatus. */
+  /** Banner (z. B. Strukturänderung): Warnfläche, 4 px linker Rand, Aktion rechts. */
   banner?: boolean;
 }
 
@@ -20,7 +27,10 @@ export function Notice({ kind, title, children, solution, actions, banner }: Not
       role={kind === 'error' ? 'alert' : 'status'}
     >
       <div className="lp-notice__body">
-        <strong className="lp-notice__title">{title}</strong>
+        <strong className="lp-notice__title">
+          {banner ? null : <span className="lp-notice__stage">{STAGE_WORD[kind]}: </span>}
+          {title}
+        </strong>
         {children ? <div className="lp-notice__text">{children}</div> : null}
         {solution ? <div className="lp-notice__solution">Lösung: {solution}</div> : null}
       </div>

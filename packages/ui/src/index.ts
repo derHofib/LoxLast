@@ -9,3 +9,5 @@ export * from './components/StatusBadge';
 export * from './components/Notice';
 export * from './components/Tabs';
 export * from './components/PropertyPanel';
+export * from './components/FunctionBlock';
+export * from './components/Hierarchy';

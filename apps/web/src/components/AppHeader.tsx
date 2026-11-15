@@ -3,18 +3,22 @@ import { Link } from 'react-router-dom';
 import { useProjectStore } from '../state/projectStore';
 import type { SaveStatus } from '../storage/autosave';
 
-const STATUS_TEXT: Record<SaveStatus, string> = {
+const STATUS_TEXT: Record<SaveStatus | 'pending', string> = {
   saved: 'Gespeichert',
+  pending: 'Ungespeicherte Änderungen',
   saving: 'Speichert …',
   error: 'Speichern fehlgeschlagen',
 };
 
 export function AppHeader({ saveStatus }: { saveStatus?: SaveStatus | undefined }) {
   const project = useProjectStore((s) => s.project);
+  const dirty = useProjectStore((s) => s.dirty);
   const past = useProjectStore((s) => s.past);
   const future = useProjectStore((s) => s.future);
   const undo = useProjectStore((s) => s.undo);
   const redo = useProjectStore((s) => s.redo);
+  const status: SaveStatus | 'pending' =
+    saveStatus === 'error' || saveStatus === 'saving' ? saveStatus : dirty ? 'pending' : 'saved';
   const lastUndo = past[past.length - 1]?.label;
   const lastRedo = future[0]?.label;
 
@@ -34,8 +38,8 @@ export function AppHeader({ saveStatus }: { saveStatus?: SaveStatus | undefined 
             {project.name}
           </span>
           <div className="app-header__tools">
-            <span className="app-save" role="status" data-status={saveStatus ?? 'saved'}>
-              {STATUS_TEXT[saveStatus ?? 'saved']}
+            <span className="app-save" role="status" data-status={status}>
+              {STATUS_TEXT[status]}
             </span>
             <Button
               size="sm"

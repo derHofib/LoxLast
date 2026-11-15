@@ -1,10 +1,17 @@
 import {
   Button,
   Card,
+  ChargePointChip,
+  ClusterNode,
+  FunctionBlock,
+  GridNode,
+  GroupNode,
+  IoLegend,
   KpiTile,
   Notice,
   NumberField,
   ProgressBar,
+  PropertyAdvanced,
   PropertyGroup,
   PropertyPanel,
   SearchField,
@@ -19,6 +26,7 @@ import { useState } from 'react';
 export function Components() {
   const [tab, setTab] = useState('a');
   const [q, setQ] = useState('');
+  const [pq, setPq] = useState('');
   return (
     <main className="app-main app-stack">
       <h1>Komponenten</h1>
@@ -26,7 +34,7 @@ export function Components() {
         <div className="list-head__actions">
           <Button variant="primary">Primär</Button>
           <Button>Sekundär</Button>
-          <Button variant="ghost">Dezent</Button>
+          <Button variant="text">Text-Button</Button>
           <Button variant="danger">Löschen</Button>
           <Button disabled>Deaktiviert</Button>
         </div>
@@ -34,7 +42,7 @@ export function Components() {
       <Card title="Eingaben">
         <div className="demo-grid">
           <TextField label="Name" defaultValue="LP01" />
-          <NumberField label="Sicherung" unit="A" defaultValue={16} changed />
+          <NumberField label="Sicherung" unit="A" defaultValue={56} change={{ from: 48, to: 56 }} />
           <NumberField
             label="Mindeststrom"
             unit="A"
@@ -58,15 +66,16 @@ export function Components() {
         <div className="demo-grid">
           <KpiTile label="Verfügbar" value={184} unit="A" sub="von 250 A" />
           <KpiTile label="Ladepunkte" value={48} />
+          <KpiTile label="Störungen" value={2} tone="warning" />
         </div>
         <ProgressBar label="Auslastung" value={50} max={100} />
         <ProgressBar label="Auslastung hoch" value={85} max={100} />
         <ProgressBar label="Auslastung voll" value={100} max={100} />
         <div className="list-head__actions">
-          <StatusBadge status="ok">In Ordnung</StatusBadge>
+          <StatusBadge status="active">Aktiv</StatusBadge>
           <StatusBadge status="warning">Prüfen</StatusBadge>
           <StatusBadge status="error">Fehler</StatusBadge>
-          <StatusBadge status="neutral">Unbekannt</StatusBadge>
+          <StatusBadge status="ready">Bereit</StatusBadge>
         </div>
       </Card>
       <Card title="Meldungen">
@@ -77,7 +86,13 @@ export function Components() {
             solution="Mindeststrom senken oder Cluster-Limit erhöhen."
           />
           <Notice kind="warning" title="Schieflast über 20 A" />
-          <Notice kind="info" title="Projekt lokal gespeichert" banner />
+          <Notice kind="ok" title="Prüfung bestanden" />
+          <Notice
+            kind="warning"
+            banner
+            title="Strukturänderung erkannt: LP10 neu angelegt"
+            actions={<Button size="sm">Export erzeugen</Button>}
+          />
         </div>
       </Card>
       <Card title="Tabs">
@@ -93,14 +108,43 @@ export function Components() {
           Inhalt von {tab === 'a' ? 'Struktur' : 'Ladepunkte'}
         </Tabs>
       </Card>
+      <Card title="Hierarchie und Export-Vorschau">
+        <div className="app-stack">
+          <GridNode label="HAK · 250 A NH2" />
+          <ClusterNode name="UV-TG1 · Ebene −1">
+            <GroupNode name="Mieter">
+              <ChargePointChip label="LP01" model="ABL eM4" phase="L1-L2-L3" selected />
+            </GroupNode>
+          </ClusterNode>
+          <ClusterNode name="UV-TG2" error>
+            <GroupNode name="Gäste">
+              <ChargePointChip label="LP02" model="ABL eM4" phase="L2-L3-L1" />
+            </GroupNode>
+          </ClusterNode>
+          <IoLegend />
+          <div className="demo-grid">
+            <FunctionBlock
+              title="LM_Standort"
+              inputs={['Netzzähler', 'Limit']}
+              outputs={['Verfügbar']}
+              params={['Reserve']}
+            />
+            <FunctionBlock title="WB_LP02" inputs={['Soll']} outputs={['Ist']} needsReview />
+          </div>
+        </div>
+      </Card>
       <PropertyPanel
         title="Ladepunkt LP01"
         subtitle="Gruppe Mieter"
+        filter={{ value: pq, onChange: setPq }}
         footer={<Button variant="primary">Übernehmen</Button>}
       >
-        <PropertyGroup title="Strom">
+        <PropertyGroup title="Häufig benötigt">
           <NumberField label="Maximal" unit="A" defaultValue={16} />
         </PropertyGroup>
+        <PropertyAdvanced>
+          <NumberField label="Port" defaultValue={502} />
+        </PropertyAdvanced>
       </PropertyPanel>
     </main>
   );
