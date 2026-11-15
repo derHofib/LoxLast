@@ -1,5 +1,6 @@
 import { v7 as uuidv7 } from 'uuid';
 import type { ChargePoint, Cluster, Group, Project } from '../model/project';
+import type { CatalogModel } from '../validation/types';
 import { createProject } from '../model/factory';
 
 /** Feste Uhrzeit für reproduzierbare Tests. */
@@ -21,7 +22,7 @@ export function makeChargePoint(
     id: uuidv7(),
     label: 'LP01',
     groupId,
-    libraryModelId: 'abl/em4-twin@1',
+    libraryModelId: 'test/wallbox@1',
     network: { ip: '192.168.10.21', port: 502, unitId: 1 },
     protocol: 'modbus-tcp',
     fuseA: 32,
@@ -64,3 +65,15 @@ export function makeSampleProject(): Project {
     ],
   };
 }
+
+/**
+ * Testmodell für die Prüfregeln. Bewusst KEIN reales Wallbox-Modell: Echte Modelldaten kommen
+ * ausschließlich aus der Bibliothek mit Herstellerquellen (Kap. 6).
+ */
+export const TEST_MODEL = {
+  id: 'test/wallbox@1',
+  displayName: 'Testwallbox',
+  complete: true,
+  missingFields: [],
+  electrical: { minA: 6, maxA: 32, phases: [1, 3], phaseSwitching: false },
+} as const satisfies CatalogModel;
