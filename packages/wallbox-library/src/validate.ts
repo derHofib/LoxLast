@@ -1,6 +1,12 @@
 import Ajv2020 from 'ajv/dist/2020.js';
 import schema from '../schema/wallbox-model.schema.json';
-import { REGISTER_ROLES, isTodo, type RegisterDef, type WallboxModel } from './model';
+import {
+  REGISTER_ROLES,
+  isTodo,
+  type RegisterDef,
+  type RegisterType,
+  type WallboxModel,
+} from './model';
 
 /**
  * Prüfung einer Modelldatei.
@@ -60,9 +66,18 @@ function sourceIssues(path: string, block: Record<string, unknown>): ValidationI
   ];
 }
 
+const REGISTER_WIDTH: Record<RegisterType, number> = {
+  uint16: 1,
+  int16: 1,
+  uint32: 2,
+  int32: 2,
+  float32: 2,
+};
+
 function registerIssues(model: WallboxModel): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
-  const seen = new Map<string, string>();
+  // Belegte Adressbereiche je Funktionscode; 32-Bit-Typen belegen zwei Adressen.
+  const occupied: Array<{ role: string; fn: number; from: number; to: number }> = [];
   for (const role of REGISTER_ROLES) {
     if (!model.modbus.registers[role]) {
       issues.push({
@@ -78,18 +93,19 @@ function registerIssues(model: WallboxModel): ValidationIssue[] {
     issues.push(
       ...sourceIssues(`/modbus/registers/${role}`, reg as unknown as Record<string, unknown>),
     );
-    if (typeof reg.fn === 'number' && typeof reg.address === 'number') {
-      const key = `${reg.fn}:${reg.address}`;
-      const other = seen.get(key);
-      if (other) {
+    if (typeof reg.fn === 'number' && typeof reg.address === 'number' && !isTodo(reg.type)) {
+      const width = REGISTER_WIDTH[reg.type as RegisterType];
+      const from = reg.address;
+      const to = from + width - 1;
+      const clash = occupied.find((o) => o.fn === reg.fn && from <= o.to && o.from <= to);
+      if (clash) {
         issues.push({
           severity: 'error',
           path: `/modbus/registers/${role}`,
-          message: `Adresse ${reg.address} (Funktion ${reg.fn}) ist bereits für "${other}" belegt.`,
+          message: `Adressen ${from}–${to} (Funktion ${reg.fn}) überschneiden sich mit "${clash.role}".`,
         });
-      } else {
-        seen.set(key, role);
       }
+      occupied.push({ role, fn: reg.fn, from, to });
     }
   }
   return issues;
@@ -114,6 +130,7 @@ export function checkRules(model: WallboxModel): ValidationIssue[] {
     });
   }
 
+  issues.push(...sourceIssues('/loxone', model.loxone as unknown as Record<string, unknown>));
   for (const [direction, mapping] of [
     ['inputs', model.loxone.inputs],
     ['outputs', model.loxone.outputs],
@@ -121,11 +138,20 @@ export function checkRules(model: WallboxModel): ValidationIssue[] {
     if (isTodo(mapping)) continue;
     for (const [name, target] of Object.entries(mapping)) {
       const role = target.replace(/^registers\./, '');
-      if (!model.modbus.registers[role]) {
+      const register = Object.hasOwn(model.modbus.registers, role)
+        ? model.modbus.registers[role]
+        : undefined;
+      if (!register) {
         issues.push({
           severity: 'error',
           path: `/loxone/${direction}/${name}`,
           message: `Verweis "${target}" zeigt auf kein Register.`,
+        });
+      } else if (direction === 'outputs' && register.access === 'r') {
+        issues.push({
+          severity: 'error',
+          path: `/loxone/${direction}/${name}`,
+          message: `Ausgang "${name}" zeigt auf "${role}", das nur lesbar (access: r) ist.`,
         });
       }
     }

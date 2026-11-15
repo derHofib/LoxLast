@@ -19,7 +19,7 @@
   "modbus": {
     "defaultPort": "TODO",
     "defaultUnitId": "TODO",
-    "byteOrder": "TODO(verify)",
+    "byteOrder": "TODO",
     "registers": {
       "setpointCurrent": {
         "address": "TODO",
@@ -100,6 +100,7 @@
   "loxone": {
     "functionBlock": "TODO(verify: Bausteinname laut Config-Version)",
     "inputs": "TODO",
-    "outputs": "TODO"
+    "outputs": "TODO",
+    "source": "TODO"
   }
 }

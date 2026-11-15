@@ -7,33 +7,60 @@
   "additionalProperties": false,
   "required": ["id", "vendor", "model", "firmware", "protocols", "electrical", "modbus", "loxone"],
   "properties": {
-    "$schema": { "type": "string" },
+    "$schema": {
+      "type": "string"
+    },
     "id": {
       "type": "string",
       "pattern": "^[a-z0-9]+(-[a-z0-9]+)*/[a-z0-9]+(-[a-z0-9]+)*@[1-9][0-9]*$"
     },
-    "vendor": { "type": "string", "minLength": 1 },
-    "model": { "type": "string", "minLength": 1 },
-    "firmware": { "$ref": "#/$defs/firmware" },
+    "vendor": {
+      "type": "string",
+      "minLength": 1
+    },
+    "model": {
+      "type": "string",
+      "minLength": 1
+    },
+    "firmware": {
+      "$ref": "#/$defs/firmware"
+    },
     "protocols": {
       "type": "array",
       "minItems": 1,
       "uniqueItems": true,
-      "items": { "enum": ["modbus-tcp", "http", "ocpp-bridge"] }
+      "items": {
+        "enum": ["modbus-tcp", "http", "ocpp-bridge"]
+      }
     },
-    "electrical": { "$ref": "#/$defs/electrical" },
-    "modbus": { "$ref": "#/$defs/modbus" },
-    "loxone": { "$ref": "#/$defs/loxone" }
+    "electrical": {
+      "$ref": "#/$defs/electrical"
+    },
+    "modbus": {
+      "$ref": "#/$defs/modbus"
+    },
+    "loxone": {
+      "$ref": "#/$defs/loxone"
+    }
   },
   "$defs": {
     "todo": {
       "type": "string",
-      "pattern": "^TODO"
+      "pattern": "^\\s*[Tt][Oo][Dd][Oo]"
     },
     "source": {
       "anyOf": [
-        { "type": "string", "minLength": 1, "not": { "pattern": "^TODO" } },
-        { "$ref": "#/$defs/todo" }
+        {
+          "type": "string",
+          "minLength": 1,
+          "not": {
+            "pattern": "^\\s*[Tt][Oo][Dd][Oo]"
+          },
+          "pattern": "\\S"
+        },
+        {
+          "$ref": "#/$defs/todo"
+        }
       ]
     },
     "firmware": {
@@ -42,16 +69,33 @@
       "required": ["min", "max", "source"],
       "properties": {
         "min": {
-          "anyOf": [{ "type": "string", "minLength": 1 }, { "$ref": "#/$defs/todo" }]
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "$ref": "#/$defs/todo"
+            }
+          ]
         },
         "max": {
           "anyOf": [
-            { "type": "string", "minLength": 1 },
-            { "type": "null" },
-            { "$ref": "#/$defs/todo" }
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/todo"
+            }
           ]
         },
-        "source": { "$ref": "#/$defs/source" }
+        "source": {
+          "$ref": "#/$defs/source"
+        }
       }
     },
     "electrical": {
@@ -60,10 +104,26 @@
       "required": ["minA", "maxA", "phases", "phaseSwitching", "source"],
       "properties": {
         "minA": {
-          "anyOf": [{ "type": "number", "exclusiveMinimum": 0 }, { "$ref": "#/$defs/todo" }]
+          "anyOf": [
+            {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            {
+              "$ref": "#/$defs/todo"
+            }
+          ]
         },
         "maxA": {
-          "anyOf": [{ "type": "number", "exclusiveMinimum": 0 }, { "$ref": "#/$defs/todo" }]
+          "anyOf": [
+            {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            {
+              "$ref": "#/$defs/todo"
+            }
+          ]
         },
         "phases": {
           "anyOf": [
@@ -71,15 +131,28 @@
               "type": "array",
               "minItems": 1,
               "uniqueItems": true,
-              "items": { "enum": [1, 3] }
+              "items": {
+                "enum": [1, 3]
+              }
             },
-            { "$ref": "#/$defs/todo" }
+            {
+              "$ref": "#/$defs/todo"
+            }
           ]
         },
         "phaseSwitching": {
-          "anyOf": [{ "type": "boolean" }, { "$ref": "#/$defs/todo" }]
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "$ref": "#/$defs/todo"
+            }
+          ]
         },
-        "source": { "$ref": "#/$defs/source" }
+        "source": {
+          "$ref": "#/$defs/source"
+        }
       }
     },
     "modbus": {
@@ -89,15 +162,37 @@
       "properties": {
         "defaultPort": {
           "anyOf": [
-            { "type": "integer", "minimum": 1, "maximum": 65535 },
-            { "$ref": "#/$defs/todo" }
+            {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 65535
+            },
+            {
+              "$ref": "#/$defs/todo"
+            }
           ]
         },
         "defaultUnitId": {
-          "anyOf": [{ "type": "integer", "minimum": 0, "maximum": 247 }, { "$ref": "#/$defs/todo" }]
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 247
+            },
+            {
+              "$ref": "#/$defs/todo"
+            }
+          ]
         },
         "byteOrder": {
-          "anyOf": [{ "type": "string", "minLength": 1 }, { "$ref": "#/$defs/todo" }]
+          "anyOf": [
+            {
+              "enum": ["big-endian", "little-endian", "word-swapped"]
+            },
+            {
+              "$ref": "#/$defs/todo"
+            }
+          ]
         },
         "registers": {
           "type": "object",
@@ -111,9 +206,16 @@
             "energy",
             "status"
           ],
-          "additionalProperties": { "$ref": "#/$defs/register" }
+          "additionalProperties": {
+            "$ref": "#/$defs/register"
+          },
+          "propertyNames": {
+            "pattern": "^[A-Za-z][A-Za-z0-9]*$"
+          }
         },
-        "source": { "$ref": "#/$defs/source" }
+        "source": {
+          "$ref": "#/$defs/source"
+        }
       }
     },
     "register": {
@@ -123,54 +225,125 @@
       "properties": {
         "address": {
           "anyOf": [
-            { "type": "integer", "minimum": 0, "maximum": 65535 },
-            { "$ref": "#/$defs/todo" }
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 65535
+            },
+            {
+              "$ref": "#/$defs/todo"
+            }
           ]
         },
         "fn": {
-          "anyOf": [{ "type": "integer", "minimum": 1, "maximum": 127 }, { "$ref": "#/$defs/todo" }]
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 127
+            },
+            {
+              "$ref": "#/$defs/todo"
+            }
+          ]
         },
         "type": {
           "anyOf": [
-            { "enum": ["uint16", "int16", "uint32", "int32", "float32"] },
-            { "$ref": "#/$defs/todo" }
+            {
+              "enum": ["uint16", "int16", "uint32", "int32", "float32"]
+            },
+            {
+              "$ref": "#/$defs/todo"
+            }
           ]
         },
         "scale": {
-          "anyOf": [{ "type": "number" }, { "$ref": "#/$defs/todo" }]
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/todo"
+            }
+          ]
         },
         "access": {
-          "anyOf": [{ "enum": ["r", "rw"] }, { "$ref": "#/$defs/todo" }]
+          "anyOf": [
+            {
+              "enum": ["r", "rw"]
+            },
+            {
+              "$ref": "#/$defs/todo"
+            }
+          ]
         },
         "unit": {
-          "anyOf": [{ "type": "string" }, { "$ref": "#/$defs/todo" }]
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/todo"
+            }
+          ]
         },
         "enum": {
           "anyOf": [
             {
               "type": "object",
               "minProperties": 1,
-              "additionalProperties": { "type": "string" }
+              "additionalProperties": {
+                "type": "string"
+              }
             },
-            { "$ref": "#/$defs/todo" }
+            {
+              "$ref": "#/$defs/todo"
+            }
           ]
         },
-        "source": { "$ref": "#/$defs/source" }
+        "source": {
+          "$ref": "#/$defs/source"
+        }
       }
     },
     "loxone": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["functionBlock", "inputs", "outputs"],
+      "required": ["functionBlock", "inputs", "outputs", "source"],
       "properties": {
         "functionBlock": {
-          "anyOf": [{ "type": "string", "minLength": 1 }, { "$ref": "#/$defs/todo" }]
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "$ref": "#/$defs/todo"
+            }
+          ]
         },
         "inputs": {
-          "anyOf": [{ "$ref": "#/$defs/mapping" }, { "$ref": "#/$defs/todo" }]
+          "anyOf": [
+            {
+              "$ref": "#/$defs/mapping"
+            },
+            {
+              "$ref": "#/$defs/todo"
+            }
+          ]
         },
         "outputs": {
-          "anyOf": [{ "$ref": "#/$defs/mapping" }, { "$ref": "#/$defs/todo" }]
+          "anyOf": [
+            {
+              "$ref": "#/$defs/mapping"
+            },
+            {
+              "$ref": "#/$defs/todo"
+            }
+          ]
+        },
+        "source": {
+          "$ref": "#/$defs/source"
         }
       }
     },

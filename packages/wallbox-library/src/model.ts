@@ -62,7 +62,7 @@ export interface WallboxModel {
   modbus: {
     defaultPort: Todoable<number>;
     defaultUnitId: Todoable<number>;
-    byteOrder: Todoable<string>;
+    byteOrder: Todoable<'big-endian' | 'little-endian' | 'word-swapped'>;
     registers: Partial<Record<RegisterRole, RegisterDef>> & Record<string, RegisterDef>;
     source: string;
   };
@@ -72,10 +72,11 @@ export interface WallboxModel {
     inputs: Todoable<Record<string, string>>;
     /** Zuordnung Loxone-Ausgang → "registers.<rolle>". */
     outputs: Todoable<Record<string, string>>;
+    source: string;
   };
 }
 
 /** Prüft, ob ein Wert ein TODO-Platzhalter ist. */
 export function isTodo(value: unknown): value is TodoMarker {
-  return typeof value === 'string' && value.startsWith('TODO');
+  return typeof value === 'string' && /^\s*todo/i.test(value);
 }

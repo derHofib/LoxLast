@@ -21,7 +21,15 @@ function completeModel(): Record<string, unknown> {
   const registers = Object.fromEntries(
     REGISTER_ROLES.map((role, index) => [
       role,
-      { address: 1000 + index, fn: 3, type: 'uint16', scale: 1, access: 'r', unit: 'A', source },
+      {
+        address: 1000 + index,
+        fn: 3,
+        type: 'uint16',
+        scale: 1,
+        access: role === 'setpointCurrent' || role === 'enable' ? 'rw' : 'r',
+        unit: 'A',
+        source,
+      },
     ]),
   );
   return {
@@ -34,6 +42,7 @@ function completeModel(): Record<string, unknown> {
     modbus: { defaultPort: 502, defaultUnitId: 1, byteOrder: 'big-endian', registers, source },
     loxone: {
       functionBlock: 'Testbaustein',
+      source,
       inputs: { Strom: 'registers.currentL1' },
       outputs: { Sollstrom: 'registers.setpointCurrent' },
     },
@@ -160,6 +169,46 @@ describe('checkModel', () => {
   it('ungültiger Wert statt TODO ist ungültig', () => {
     const data = completeModel();
     (data['electrical'] as Record<string, unknown>)['maxA'] = 'viel';
+    expect(checkModel(data).status).toBe('invalid');
+  });
+
+  it('loxone-Block ohne Quelle mit echten Werten ist ungültig', () => {
+    const data = completeModel();
+    (data['loxone'] as Record<string, unknown>)['source'] = 'TODO';
+    expect(checkModel(data).status).toBe('invalid');
+  });
+
+  it('Platzhalter in Varianten (" TODO", "todo") zählen als Platzhalter', () => {
+    const data = completeModel();
+    (data['firmware'] as Record<string, unknown>)['source'] = ' todo';
+    expect(checkModel(data).status).toBe('invalid');
+  });
+
+  it('Freitext ohne Quelle-Platzhalter ist eine Quelle', () => {
+    const data = completeModel();
+    (data['firmware'] as Record<string, unknown>)['source'] = 'Datenblatt, v2, S. 3';
+    expect(checkModel(data).status).toBe('complete');
+  });
+
+  it('Prototyp-Schlüssel als Registerverweis ist ungültig', () => {
+    const data = completeModel();
+    (data['loxone'] as Record<string, unknown>)['inputs'] = { S: 'registers.constructor' };
+    expect(checkModel(data).status).toBe('invalid');
+  });
+
+  it('32-Bit-Register, das ein Nachbarregister überlappt, ist ungültig', () => {
+    const data = completeModel();
+    const registers = (data['modbus'] as { registers: Record<string, Record<string, unknown>> })
+      .registers;
+    const power = reg(registers, 'power');
+    power['type'] = 'uint32';
+    power['address'] = reg(registers, 'currentL1')['address'];
+    expect(checkModel(data).status).toBe('invalid');
+  });
+
+  it('Ausgang auf ein nur lesbares Register ist ungültig', () => {
+    const data = completeModel();
+    (data['loxone'] as Record<string, unknown>)['outputs'] = { O: 'registers.currentL1' };
     expect(checkModel(data).status).toBe('invalid');
   });
 });
