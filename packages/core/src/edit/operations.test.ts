@@ -162,6 +162,22 @@ describe('Ändern', () => {
     expect(p.chargePoints[2]).not.toHaveProperty('room');
   });
 
+  it('Netzwerk-Patch wird je Ladepunkt feldweise eingemischt', () => {
+    const p = makeSampleProject();
+    const ips = p.chargePoints.map((c) => c.network.ip);
+    const both = p.chargePoints.slice(0, 2).map((c) => c.id);
+    updateChargePoints(p, both, { network: { port: 1502, unitId: 7 } });
+    expect(p.chargePoints.map((c) => c.network.ip)).toEqual(ips);
+    expect(p.chargePoints.slice(0, 2).map((c) => [c.network.port, c.network.unitId])).toEqual([
+      [1502, 7],
+      [1502, 7],
+    ]);
+    updateChargePoints(p, both, { network: { unitId: undefined } });
+    expect(p.chargePoints[0]!.network).not.toHaveProperty('unitId');
+    expect(p.chargePoints[0]!.network.port).toBe(1502);
+    expectConsistent(p);
+  });
+
   it('Lösungsvorschlag anwenden', () => {
     const p = makeSampleProject();
     applyChangesInPlace(p, [
