@@ -17,10 +17,30 @@ const raw = import.meta.glob('../../../../packages/wallbox-library/models/**/*.j
   eager: true,
 }) as Record<string, string>;
 
-export const bundledModelFiles: ModelFile[] = Object.entries(raw).map(([path, content]) => ({
-  path: path.replace(/^.*\/models\//, ''),
-  content,
-}));
+/**
+ * Nur im Entwicklermodus (`pnpm dev`): ein ausdrücklich erfundenes Testmodell, damit die Übergabe
+ * an ein Config-Testprojekt ohne echte Herstellerunterlagen ausprobiert werden kann. Im Build
+ * (`vite build`, GitHub Pages) und in den Tests ist es nicht enthalten.
+ */
+const devRaw =
+  import.meta.env.MODE === 'development'
+    ? (import.meta.glob('./dev-models/**/*.json', {
+        query: '?raw',
+        import: 'default',
+        eager: true,
+      }) as Record<string, string>)
+    : {};
+
+export const bundledModelFiles: ModelFile[] = [
+  ...Object.entries(raw).map(([path, content]) => ({
+    path: path.replace(/^.*\/models\//, ''),
+    content,
+  })),
+  ...Object.entries(devRaw).map(([path, content]) => ({
+    path: path.replace(/^.*\/dev-models\//, ''),
+    content,
+  })),
+];
 
 export const bundledLibrary: LibraryCheck = loadLibrary(bundledModelFiles);
 

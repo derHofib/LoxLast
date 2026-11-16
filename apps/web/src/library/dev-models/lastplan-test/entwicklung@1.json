@@ -1,0 +1,104 @@
+{
+  "id": "lastplan-test/entwicklung@1",
+  "vendor": "LastPlan-Test",
+  "model": "Testmodell (nur Entwicklung, keine echte Wallbox)",
+  "firmware": {
+    "min": "1.0",
+    "max": null,
+    "source": "Erfunden für Entwicklungstests – keine Herstellerangabe, nie für echte Anlagen"
+  },
+  "protocols": ["modbus-tcp", "http"],
+  "electrical": {
+    "minA": 6,
+    "maxA": 32,
+    "phases": [1, 3],
+    "phaseSwitching": false,
+    "source": "Erfunden für Entwicklungstests – keine Herstellerangabe, nie für echte Anlagen"
+  },
+  "modbus": {
+    "defaultPort": 502,
+    "defaultUnitId": 1,
+    "byteOrder": "big-endian",
+    "registers": {
+      "setpointCurrent": {
+        "address": 100,
+        "fn": 6,
+        "type": "uint16",
+        "scale": 1,
+        "access": "rw",
+        "unit": "A",
+        "source": "Erfunden für Entwicklungstests – keine Herstellerangabe, nie für echte Anlagen"
+      },
+      "enable": {
+        "address": 101,
+        "fn": 6,
+        "type": "uint16",
+        "scale": 1,
+        "access": "rw",
+        "unit": "-",
+        "source": "Erfunden für Entwicklungstests – keine Herstellerangabe, nie für echte Anlagen"
+      },
+      "currentL1": {
+        "address": 200,
+        "fn": 4,
+        "type": "uint16",
+        "scale": 0.1,
+        "access": "r",
+        "unit": "A",
+        "source": "Erfunden für Entwicklungstests – keine Herstellerangabe, nie für echte Anlagen"
+      },
+      "currentL2": {
+        "address": 201,
+        "fn": 4,
+        "type": "uint16",
+        "scale": 0.1,
+        "access": "r",
+        "unit": "A",
+        "source": "Erfunden für Entwicklungstests – keine Herstellerangabe, nie für echte Anlagen"
+      },
+      "currentL3": {
+        "address": 202,
+        "fn": 4,
+        "type": "uint16",
+        "scale": 0.1,
+        "access": "r",
+        "unit": "A",
+        "source": "Erfunden für Entwicklungstests – keine Herstellerangabe, nie für echte Anlagen"
+      },
+      "power": {
+        "address": 210,
+        "fn": 4,
+        "type": "uint32",
+        "scale": 1,
+        "access": "r",
+        "unit": "W",
+        "source": "Erfunden für Entwicklungstests – keine Herstellerangabe, nie für echte Anlagen"
+      },
+      "energy": {
+        "address": 212,
+        "fn": 4,
+        "type": "uint32",
+        "scale": 1,
+        "access": "r",
+        "unit": "Wh",
+        "source": "Erfunden für Entwicklungstests – keine Herstellerangabe, nie für echte Anlagen"
+      },
+      "status": {
+        "address": 220,
+        "fn": 4,
+        "type": "uint16",
+        "scale": 1,
+        "access": "r",
+        "unit": "-",
+        "source": "Erfunden für Entwicklungstests – keine Herstellerangabe, nie für echte Anlagen"
+      }
+    },
+    "source": "Erfunden für Entwicklungstests – keine Herstellerangabe, nie für echte Anlagen"
+  },
+  "loxone": {
+    "functionBlock": "Wallbox",
+    "inputs": {},
+    "outputs": {},
+    "source": "Erfunden für Entwicklungstests – keine Herstellerangabe, nie für echte Anlagen"
+  }
+}
