@@ -393,6 +393,13 @@ describe('renderHandoverScript', () => {
 
   it('Miniserver ohne „Miniserver“ im Typ: das einzige Gerät unter der Projektwurzel', () => {
     const plan = buildHandoverPlan(sample(), MODELS);
+    const { cfg, calls } = fakeCfg(1, undefined, undefined, { msType: 'Unbekannt' });
+    run(plan, cfg);
+    expect(calls.find(([m]) => m === 'add_page')?.[1]).toMatchObject({ context_uuid: 'ms0' });
+  });
+
+  it('Miniserver vom Typ LoxLIVE', () => {
+    const plan = buildHandoverPlan(sample(), MODELS);
     const { cfg, calls } = fakeCfg(1, undefined, undefined, { msType: 'LoxLIVE' });
     run(plan, cfg);
     expect(calls.find(([m]) => m === 'add_page')?.[1]).toMatchObject({ context_uuid: 'ms0' });

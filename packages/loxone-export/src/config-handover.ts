@@ -521,12 +521,12 @@ export function renderHandoverScript(plan: HandoverScriptInput): string {
 ${SCRIPT_BODY}`;
 }
 
-// TODO(verify): Typ-Schlüssel des Miniservers im Peripheriebaum ist nicht belegt. Belegt ist nur
-// der Pfad aus der Erkundung: Projekt / <Miniserver> / Netzwerkperipherie / Modbusserver. Das Skript
-// nimmt deshalb zuerst einen Knoten, dessen Typ „Miniserver“ enthält, sonst das einzige Gerät
+// Miniserver: Typ `LoxLIVE` (Test von Dennis am 2026-11-16, Projekt „Lox Grundschulung“). Das
+// Skript nimmt einen Knoten mit diesem Typ oder mit „Miniserver“ im Typ, sonst das einzige Gerät
 // direkt unter der Projektwurzel. Ist das nicht eindeutig, bricht es vor jeder Änderung ab und
 // nennt, was unter der Wurzel steht. Den Ort für virtuelle Eingänge fragt es mit
-// get_insertable_types ab, statt ihn anzunehmen.
+// get_insertable_types ab, statt ihn anzunehmen. Modbusserver lassen sich per SDK nicht einfügen
+// (kein Katalogtyp, gleicher Test); sie bleiben Voraussetzung.
 const SCRIPT_BODY = String.raw`
 const created = {};
 const uuidOf = (r) => (r && r.block && r.block.uuid) || (r && r.object && r.object.uuid) || (r && r.uuid);
@@ -534,7 +534,7 @@ const uuidOf = (r) => (r && r.block && r.block.uuid) || (r && r.object && r.obje
 const tree = cfg.get_tree({});
 let miniservers = [];
 const walk = (n) => {
-  if (n.uuid && n.type && /miniserver/i.test(n.type) && n.isDevice) miniservers.push(n);
+  if (n.uuid && n.type && /^LoxLIVE$|miniserver/i.test(n.type) && n.isDevice) miniservers.push(n);
   for (const c of n.children || []) walk(c);
 };
 for (const r of tree.roots) walk(r);
