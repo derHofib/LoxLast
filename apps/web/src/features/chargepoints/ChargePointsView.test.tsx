@@ -44,6 +44,21 @@ describe('Ladepunkte-Ansicht', () => {
     expect(screen.getByRole('button', { name: 'CSV-Import' })).toHaveProperty('disabled', true);
   });
 
+  it('fehlende Angaben aus dem Import: Vermerk am Feld, Nachtragen oder Bestätigen hebt ihn auf', async () => {
+    const user = userEvent.setup();
+    setup((p) => {
+      p.chargePoints[0]!.missingFields = ['minA', 'phases'];
+    });
+    expect(screen.getAllByText(/Fehlt – Platzhalter, bitte nachtragen/)).toHaveLength(2);
+    // Nachtragen: gleicher Wert reicht nicht, Bestätigen schon
+    await user.click(screen.getAllByRole('button', { name: 'Wert bestätigen' })[0]!);
+    expect(project().chargePoints[0]!.missingFields).toEqual(['phases']);
+    expect(store().past.at(-1)?.label).toBe('Angabe bestätigen');
+    await user.selectOptions(screen.getByLabelText('Phasen'), '1');
+    expect(project().chargePoints[0]).not.toHaveProperty('missingFields');
+    expect(screen.queryByText(/Fehlt – Platzhalter/)).toBeNull();
+  });
+
   it('leerer Zustand ohne Gruppe legt Cluster und Gruppe an (ein Undo-Schritt)', async () => {
     const user = userEvent.setup();
     store().open({ ...sampleProject(), clusters: [], groups: [], chargePoints: [] });

@@ -97,6 +97,29 @@ export const LibraryModelIdSchema = z
     'Modell-ID muss die Form „hersteller/modell@version“ haben',
   );
 
+/**
+ * Elektrische Angaben eines Ladepunkts, die beim Import fehlen können. Solange ein Feld hier
+ * steht, ist sein Wert nur ein Platzhalter: Die Prüfung meldet es (CP_DATA_MISSING) und sperrt
+ * den Export, bis der Wert nachgetragen oder bestätigt ist.
+ */
+export const CP_DATA_FIELDS = [
+  'fuseA',
+  'minA',
+  'maxA',
+  'phases',
+  'phaseRotation',
+  'phaseSwitching',
+] as const;
+export type ChargePointDataField = (typeof CP_DATA_FIELDS)[number];
+export const CP_DATA_FIELD_LABEL: Record<ChargePointDataField, string> = {
+  fuseA: 'Absicherung',
+  minA: 'Mindeststrom',
+  maxA: 'Maximalstrom',
+  phases: 'Phasen',
+  phaseRotation: 'Phasenlage',
+  phaseSwitching: 'Phasenumschaltung',
+};
+
 export const ChargePointSchema = z.object({
   id: IdSchema,
   /** z. B. „LP01“ */
@@ -118,6 +141,8 @@ export const ChargePointSchema = z.object({
   room: z.string().trim().max(200).optional(),
   category: z.string().trim().max(200).optional(),
   notes: z.string().max(5000).optional(),
+  /** Angaben, die noch fehlen (Werte sind Platzhalter), siehe CP_DATA_FIELDS. */
+  missingFields: z.array(z.enum(CP_DATA_FIELDS)).optional(),
 });
 export type ChargePoint = z.infer<typeof ChargePointSchema>;
 

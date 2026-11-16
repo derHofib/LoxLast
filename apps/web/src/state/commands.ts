@@ -3,6 +3,7 @@ import {
   addCluster,
   addGroup,
   applyChangesInPlace,
+  confirmChargePointFields,
   applyImport,
   deleteElements,
   duplicateElements,
@@ -14,6 +15,7 @@ import {
   updateCluster,
   updateGroup,
   updateSite,
+  type ChargePointDataField,
   type ChargePointPatch,
   type ClusterPatch,
   type FixProposal,
@@ -154,4 +156,17 @@ export function importChargePointsCommand(rows: readonly ValidImportRow[]): {
       },
     ),
   };
+}
+
+/** Platzhalter-Werte bestätigen (Vermerk „fehlt“ entfällt, Werte bleiben). */
+export function confirmChargePointFieldsCommand(
+  ids: readonly string[],
+  fields: readonly ChargePointDataField[],
+): Command {
+  return command(
+    ids.length === 1 ? 'Angabe bestätigen' : `Angaben bei ${ids.length} Ladepunkten bestätigen`,
+    (draft) => {
+      confirmChargePointFields(draft, ids, fields);
+    },
+  );
 }

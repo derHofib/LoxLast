@@ -32,6 +32,10 @@ function run(lines: string[], project: Project = makeSampleProject(), mapping?: 
 }
 
 const messages = (r: ReturnType<typeof run>, i = 0) => r.rows[i]?.issues.map((x) => x.message);
+const errorMessages = (r: ReturnType<typeof run>, i = 0) =>
+  r.rows[i]?.issues.filter((x) => x.severity === 'error').map((x) => x.message);
+const missingMessage = (line: number, fields: string) =>
+  `Zeile ${line}: Fehlt in der Datei: ${fields} – wird als Platzhalter übernommen und am Ladepunkt als fehlend markiert (Export gesperrt, bis nachgetragen)`;
 
 describe('checkMapping', () => {
   it('meldet fehlende Pflichtfelder, ungültige Spalten und Doppelbelegung', () => {
@@ -50,7 +54,7 @@ describe('checkMapping', () => {
   });
 
   it('validateImport prüft bei Zuordnungsfehlern keine Zeilen', () => {
-    const r = run(['LP10;Mieter;;192.168.10.30'], makeSampleProject(), { label: 0 });
+    const r = run(['LP10;Mieter;test/wallbox@1;192.168.10.30'], makeSampleProject(), { label: 0 });
     expect(r.mappingIssues).toHaveLength(2);
     expect(r.rows).toEqual([]);
     expect(r.validRows).toEqual([]);
@@ -58,8 +62,14 @@ describe('checkMapping', () => {
 });
 
 describe('validateImport', () => {
-  it('übernimmt eine gültige Zeile mit deutschen Zahlen und Einheiten', () => {
-    const r = run(['LP10;Mieter;test/wallbox@1;192.168.10.30;503;2;6,0;16 A']);
+  it('übernimmt eine vollständige Zeile mit deutschen Zahlen und Einheiten', () => {
+    const csv = parseCsv(
+      [
+        `${HEADER};Absicherung (A);Phasen;Phasenlage;Phasenumschaltung`,
+        'LP10;Mieter;test/wallbox@1;192.168.10.30;503;2;6,0;16 A;32;3;L2-L3-L1;nein',
+      ].join('\r\n'),
+    );
+    const r = validateImport(makeSampleProject(), csv, suggestMapping(csv.header), catalog);
     expect(r.counts).toEqual({ ok: 1, warning: 0, error: 0, empty: 0 });
     expect(r.rows[0]).toMatchObject({
       line: 2,
@@ -73,7 +83,10 @@ describe('validateImport', () => {
       network: { ip: '192.168.10.30', port: 503, unitId: 2 },
       minA: 6,
       maxA: 16,
+      fuseA: 32,
+      phaseRotation: 'L2-L3-L1',
     });
+    expect(r.validRows[0]?.chargePoint).not.toHaveProperty('missingFields');
   });
 
   it('meldet ungültige IP mit Zeile und Spalte (Beispiel aus der Spezifikation)', () => {
@@ -84,49 +97,58 @@ describe('validateImport', () => {
     );
   });
 
-  it('ergänzt fehlende Werte wie addChargePoint und weist darauf hin', () => {
+  it('fehlende elektrische Angaben: Platzhalter, am Ladepunkt als fehlend markiert, Hinweis', () => {
     const p = makeSampleProject();
-    const template = p.chargePoints.at(-1)!;
-    const r = run(['LP10;Flotte;;192.168.10.30;;;;'], p);
+    const r = run(['LP10;Flotte;test/wallbox@1;192.168.10.30;;;;'], p);
     expect(r.rows[0]?.status).toBe('warning');
     expect(messages(r)).toEqual([
-      'Zeile 2, Spalte ‚Modell-ID‘: Modell-ID leer – übernommen vom vorherigen Ladepunkt: test/wallbox@1',
+      missingMessage(
+        2,
+        'Absicherung, Mindeststrom, Maximalstrom, Phasen, Phasenlage, Phasenumschaltung',
+      ),
     ]);
     expect(r.validRows[0]?.chargePoint).toEqual({
       label: 'LP10',
       groupId: p.groups[1]!.id,
-      libraryModelId: template.libraryModelId,
-      network: { ...template.network, ip: '192.168.10.30' },
-      protocol: template.protocol,
-      fuseA: template.fuseA,
-      minA: template.minA,
-      maxA: template.maxA,
-      phases: template.phases,
+      libraryModelId: 'test/wallbox@1',
+      network: { ip: '192.168.10.30', port: 502 },
+      protocol: 'modbus-tcp',
+      // Platzhalter innerhalb der Grenzen des Modells (Testwallbox 6–32 A)
+      fuseA: 32,
+      minA: 6,
+      maxA: 32,
+      phases: 3,
       phaseRotation: 'L1-L2-L3',
       phaseSwitching: false,
+      missingFields: ['fuseA', 'minA', 'maxA', 'phases', 'phaseRotation', 'phaseSwitching'],
     });
   });
 
-  it('Standardwerte folgen der vorherigen gültigen Zeile der Datei', () => {
-    const r = run([
-      'LP10;Mieter;test/einphasig@1;192.168.10.30;;;8;20',
-      'LP11;Mieter;;192.168.10.31;;;x;',
-      'LP12;Mieter;;192.168.10.32;;;;',
-    ]);
-    expect(r.rows.map((x) => x.status)).toEqual(['warning', 'error', 'warning']);
-    expect(r.validRows[1]?.chargePoint).toMatchObject({
-      libraryModelId: 'test/einphasig@1',
-      minA: 8,
-      maxA: 20,
-    });
-  });
-
-  it('ohne bestehenden Ladepunkt ist die Modell-ID nötig', () => {
+  it('übernimmt nichts von vorherigen Ladepunkten oder Zeilen', () => {
     const p = makeSampleProject();
-    p.chargePoints = [];
-    const r = run(['LP10;Mieter;;192.168.10.30'], p);
-    expect(messages(r)).toEqual([
-      'Zeile 2, Spalte ‚Modell-ID‘: Modell-ID fehlt. Es gibt keinen vorherigen Ladepunkt, von dem sie übernommen werden kann.',
+    p.chargePoints.at(-1)!.minA = 10;
+    const r = run(
+      [
+        'LP10;Mieter;test/einphasig@1;192.168.10.30;;;8;20',
+        'LP11;Mieter;test/wallbox@1;192.168.10.31;;;;',
+      ],
+      p,
+    );
+    expect(r.validRows[1]?.chargePoint).toMatchObject({
+      libraryModelId: 'test/wallbox@1',
+      minA: 6,
+      maxA: 32,
+      phases: 3,
+    });
+    expect(r.validRows[1]?.chargePoint.missingFields).toContain('minA');
+    expect(r.validRows[0]?.chargePoint.missingFields).not.toContain('minA');
+  });
+
+  it('ohne Modell-ID wird die Zeile nicht importiert', () => {
+    const r = run(['LP10;Mieter;;192.168.10.30']);
+    expect(r.rows[0]?.status).toBe('error');
+    expect(errorMessages(r)).toEqual([
+      'Zeile 2, Spalte ‚Modell-ID‘: Modell-ID fehlt. Ohne Modell lassen sich Register und Grenzen nicht zuordnen.',
     ]);
   });
 
@@ -137,15 +159,15 @@ describe('validateImport', () => {
       'LP12;Mieter;test/unvollstaendig@1;192.168.10.32',
     ]);
     expect(r.rows.map((x) => x.status)).toEqual(['error', 'error', 'warning']);
-    expect(messages(r, 0)).toEqual([
+    expect(errorMessages(r, 0)).toEqual([
       'Zeile 2, Spalte ‚Modell-ID‘: „ABL eM4“ ist keine Modell-ID (Form: hersteller/modell@version)',
     ]);
-    expect(messages(r, 1)).toEqual([
+    expect(errorMessages(r, 1)).toEqual([
       'Zeile 3, Spalte ‚Modell-ID‘: Modell-ID „foo/bar@1“ ist in der Wallbox-Bibliothek nicht bekannt',
     ]);
-    expect(messages(r, 2)).toEqual([
+    expect(messages(r, 2)).toContain(
       'Zeile 4, Spalte ‚Modell-ID‘: Modell Testmodell unvollständig ist in der Bibliothek unvollständig (2 Angaben fehlen) – Import möglich, Export erst nach Ergänzung',
-    ]);
+    );
   });
 
   it('prüft Grenzen des Modells (Strom, Phasen, Umschaltung)', () => {
@@ -155,9 +177,10 @@ describe('validateImport', () => {
     );
     const r = validateImport(makeSampleProject(), csv, suggestMapping(csv.header), catalog);
     expect(r.rows[0]?.issues.map((i) => i.message)).toEqual([
+      missingMessage(2, 'Absicherung, Phasenlage'),
       'Zeile 2, Spalte ‚Modell-ID‘: Modell Testmodell 1-phasig ist in der Bibliothek unvollständig (1 Angabe fehlt) – Import möglich, Export erst nach Ergänzung',
-      'Zeile 2, Spalte ‚Max. Strom (A)‘: Max. Strom 32\u00a0A über dem Höchststrom von Testmodell 1-phasig (20\u00a0A)',
-      'Zeile 2, Spalte ‚Min. Strom (A)‘: Min. Strom 6\u00a0A unter dem Mindeststrom von Testmodell 1-phasig (8\u00a0A)',
+      'Zeile 2, Spalte ‚Max. Strom (A)‘: Max. Strom 32 A über dem Höchststrom von Testmodell 1-phasig (20 A)',
+      'Zeile 2, Spalte ‚Min. Strom (A)‘: Min. Strom 6 A unter dem Mindeststrom von Testmodell 1-phasig (8 A)',
       'Zeile 2, Spalte ‚Phasen‘: Testmodell 1-phasig unterstützt keinen 3-phasigen Anschluss',
       'Zeile 2, Spalte ‚Phasenumschaltung‘: Phasenumschaltung aktiv, Testmodell 1-phasig unterstützt sie nicht',
     ]);
@@ -169,11 +192,11 @@ describe('validateImport', () => {
       [
         header,
         ';;;;;;6',
-        'LP10;Mieter;;192.168.10.30;70000;248;-1;abc;0',
-        'LP11;Mieter;;192.168.10.31;;;20;16;',
-        'LP12;Mieter;;192.168.10.32;;;5;40;32',
-        'LP13;Mieter;;192.168.10.33;;;;;10000',
-        'LP14;Mieter;;192.168.10.34;;;;40;',
+        'LP10;Mieter;test/wallbox@1;192.168.10.30;70000;248;-1;abc;0',
+        'LP11;Mieter;test/wallbox@1;192.168.10.31;;;20;16;',
+        'LP12;Mieter;test/wallbox@1;192.168.10.32;;;5;40;32',
+        'LP13;Mieter;test/wallbox@1;192.168.10.33;;;;;10000',
+        'LP14;Mieter;test/wallbox@1;192.168.10.34;;;;40;',
       ].join('\n'),
     );
     const r = validateImport(makeSampleProject(), csv, suggestMapping(csv.header), catalog);
@@ -203,36 +226,33 @@ describe('validateImport', () => {
       'Zeile 6, Spalte ‚Absicherung (A)‘: 10000 liegt außerhalb des zulässigen Bereichs (größer 0 bis 6.300\u00a0A)',
     ]);
     expect(errors(5)).toEqual([
-      'Zeile 7, Spalte ‚Max. Strom (A)‘: Max. Strom 40\u00a0A ist größer als die Absicherung 32\u00a0A (Standardwert, in der Datei leer)',
       'Zeile 7, Spalte ‚Max. Strom (A)‘: Max. Strom 40\u00a0A über dem Höchststrom von Testwallbox (32\u00a0A)',
     ]);
   });
 
-  it('meldet Werte aus Standardwerten ohne Spalte nur mit Zeile', () => {
-    const p = makeSampleProject();
-    p.chargePoints.at(-1)!.minA = 4;
-    const csv = parseCsv('Bezeichnung;Gruppe;IP\nLP10;Mieter;192.168.10.30');
-    const r = validateImport(p, csv, suggestMapping(csv.header), catalog);
-    expect(r.rows[0]?.issues.map((x) => x.message)).toContain(
-      'Zeile 2: Min. Strom 4\u00a0A (Standardwert, in der Datei leer) liegt unter 6\u00a0A (IEC 61851)',
+  it('fehlende Spalten erscheinen nur mit Zeilennummer', () => {
+    const csv = parseCsv(
+      'Bezeichnung;Gruppe;Modell-ID;IP\nLP10;Mieter;test/wallbox@1;192.168.10.30',
     );
-    p.chargePoints.at(-1)!.minA = 20;
-    const r2 = validateImport(p, csv, suggestMapping(csv.header), catalog);
-    expect(r2.rows[0]?.issues.map((x) => x.message)).toContain(
-      'Zeile 2: Min. Strom 20\u00a0A (Standardwert, in der Datei leer) ist größer als Max. Strom 16\u00a0A (Standardwert, in der Datei leer)',
-    );
+    const r = validateImport(makeSampleProject(), csv, suggestMapping(csv.header), catalog);
+    expect(r.rows[0]?.issues.map((x) => x.message)).toEqual([
+      missingMessage(
+        2,
+        'Absicherung, Mindeststrom, Maximalstrom, Phasen, Phasenlage, Phasenumschaltung',
+      ),
+    ]);
   });
 
   it('übrige Felder: Phasenlage, Protokoll, Texte', () => {
     const header =
-      'Bezeichnung;Gruppe;IP;Phasenlage;Protokoll;Raum;Kategorie;Notizen;Phasen;Phasenumschaltung';
+      'Bezeichnung;Gruppe;Modell-ID;IP;Phasenlage;Protokoll;Raum;Kategorie;Notizen;Phasen;Phasenumschaltung';
     const long = 'x'.repeat(201);
     const csv = parseCsv(
       [
         header,
-        `LP10;Mieter;192.168.10.30;L1-L3-L2;smtp;${long};;;2;vielleicht`,
-        `LP11;Mieter;192.168.10.31;L2 L3 L1;Modbus TCP;TG;Mieter;"Zeile 1\nZeile 2";1;nein`,
-        `${long};Mieter;192.168.10.32`,
+        `LP10;Mieter;test/wallbox@1;192.168.10.30;L1-L3-L2;smtp;${long};;;2;vielleicht`,
+        `LP11;Mieter;test/wallbox@1;192.168.10.31;L2 L3 L1;Modbus TCP;TG;Mieter;"Zeile 1\nZeile 2";1;nein`,
+        `${long};Mieter;test/wallbox@1;192.168.10.32`,
       ].join('\n'),
     );
     const r = validateImport(makeSampleProject(), csv, suggestMapping(csv.header), catalog);
@@ -267,11 +287,11 @@ describe('validateImport', () => {
     };
     const r = run(
       [
-        'LP10;Mieter;;192.168.10.30',
-        'lp10;Mieter;;192.168.10.31',
-        'LP12;Mieter;;192.168.10.30',
-        'LP01;Mieter;;192.168.10.21',
-        'LP14;Mieter;;192.168.10.2',
+        'LP10;Mieter;test/wallbox@1;192.168.10.30',
+        'lp10;Mieter;test/wallbox@1;192.168.10.31',
+        'LP12;Mieter;test/wallbox@1;192.168.10.30',
+        'LP01;Mieter;test/wallbox@1;192.168.10.21',
+        'LP14;Mieter;test/wallbox@1;192.168.10.2',
       ],
       p,
     );
@@ -297,10 +317,10 @@ describe('validateImport', () => {
     p.groups.push(makeGroup(sub.id, { name: 'Mieter' }), makeGroup(sub.id, { name: 'Gäste' }));
     const r = run(
       [
-        'LP10;Mieter;;192.168.10.30',
-        'LP11;uv-2>mieter;;192.168.10.31',
-        'LP12;UV-TG1 · Ebene −1 › UV-2 › Gäste;;192.168.10.32',
-        'LP13;Gaeste;;192.168.10.33',
+        'LP10;Mieter;test/wallbox@1;192.168.10.30',
+        'LP11;uv-2>mieter;test/wallbox@1;192.168.10.31',
+        'LP12;UV-TG1 · Ebene −1 › UV-2 › Gäste;test/wallbox@1;192.168.10.32',
+        'LP13;Gaeste;test/wallbox@1;192.168.10.33',
       ],
       p,
     );
@@ -314,10 +334,10 @@ describe('validateImport', () => {
     );
 
     for (let i = 0; i < 3; i++) p.groups.push(makeGroup(sub.id, { name: `G${i}` }));
-    expect(messages(run(['LP10;X;;192.168.10.30'], p))?.[0]).toMatch(/G0, …\)/);
+    expect(messages(run(['LP10;X;test/wallbox@1;192.168.10.30'], p))?.[0]).toMatch(/G0, …\)/);
 
     const empty = createProject({ name: 'Leer' });
-    expect(messages(run(['LP10;Mieter;;192.168.10.30'], empty))).toEqual([
+    expect(messages(run(['LP10;Mieter;test/wallbox@1;192.168.10.30'], empty))).toEqual([
       'Zeile 2, Spalte ‚Gruppe‘: Gruppe „Mieter“ gibt es nicht – das Projekt hat noch keine Gruppen. Bitte zuerst in der Struktur-Ansicht anlegen.',
     ]);
   });
@@ -325,7 +345,7 @@ describe('validateImport', () => {
   it('Gruppe ohne vorhandenen Cluster wird nur über den Namen gefunden', () => {
     const p = makeSampleProject();
     p.groups[1]!.clusterId = '0196a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b';
-    expect(run(['LP10;Flotte;;192.168.10.30'], p).rows[0]?.groupPath).toBe('Flotte');
+    expect(run(['LP10;Flotte;test/wallbox@1;192.168.10.30'], p).rows[0]?.groupPath).toBe('Flotte');
   });
 
   it('übersteht Cluster-Zyklen beim Gruppenpfad', () => {
@@ -339,7 +359,7 @@ describe('validateImport', () => {
   });
 
   it('Leerzeilen werden übersprungen und gezählt, Zeilennummern bleiben stimmig', () => {
-    const r = run(['', ';;;', 'LP10;Mieter;;192.168.1.300']);
+    const r = run(['', ';;;', 'LP10;Mieter;test/wallbox@1;192.168.1.300']);
     expect(r.counts).toEqual({ ok: 0, warning: 0, error: 1, empty: 2 });
     expect(r.rows[2]?.line).toBe(4);
   });
@@ -355,7 +375,10 @@ describe('validateImport', () => {
   it('verändert das Projekt nicht', () => {
     const p = makeSampleProject();
     const before = JSON.stringify(p);
-    run(['LP10;Mieter;;192.168.10.30', 'LP11;Mieter;;192.168.10.31'], p);
+    run(
+      ['LP10;Mieter;test/wallbox@1;192.168.10.30', 'LP11;Mieter;test/wallbox@1;192.168.10.31'],
+      p,
+    );
     expect(JSON.stringify(p)).toBe(before);
   });
 });
@@ -363,7 +386,13 @@ describe('validateImport', () => {
 describe('applyImport', () => {
   it('übernimmt genau die Werte der Vorschau mit neuen IDs', () => {
     const p = makeSampleProject();
-    const r = run(['LP10;Mieter;;192.168.10.30', 'LP11;Flotte;;192.168.10.31;;;;20'], p);
+    const r = run(
+      [
+        'LP10;Mieter;test/wallbox@1;192.168.10.30',
+        'LP11;Flotte;test/wallbox@1;192.168.10.31;;;;20',
+      ],
+      p,
+    );
     const ids = ['0196a1b2-c3d4-7e5f-8a9b-000000000001', '0196a1b2-c3d4-7e5f-8a9b-000000000002'];
     let n = 0;
     const next = structuredClone(p);
@@ -376,7 +405,7 @@ describe('applyImport', () => {
 
   it('erzeugt ohne idFactory UUIDs', () => {
     const p = makeSampleProject();
-    const r = run(['LP10;Mieter;;192.168.10.30'], p);
+    const r = run(['LP10;Mieter;test/wallbox@1;192.168.10.30'], p);
     const [id] = applyImport(p, r.validRows);
     expect(id).toMatch(/^[0-9a-f-]{36}$/);
   });

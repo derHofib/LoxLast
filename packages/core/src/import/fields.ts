@@ -9,7 +9,9 @@ import { serializeCsv } from './csv';
  * meldet der Typ `Record<ImportFieldKey, …>` unten einen Fehler, bis es hier ergänzt ist.
  */
 export type ImportFieldKey =
-  Exclude<keyof ChargePoint, 'id' | 'groupId' | 'network'> | 'group' | keyof ChargePoint['network'];
+  | Exclude<keyof ChargePoint, 'id' | 'groupId' | 'network' | 'missingFields'>
+  | 'group'
+  | keyof ChargePoint['network'];
 
 export interface ImportField {
   key: ImportFieldKey;

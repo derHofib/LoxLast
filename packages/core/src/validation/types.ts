@@ -38,6 +38,7 @@ export type RuleId =
   | 'DUP_IP'
   | 'CP_NO_GROUP'
   | 'CP_MIN_MAX'
+  | 'CP_DATA_MISSING'
   | 'MODEL_INCOMPLETE'
   | 'PHASE_SWITCH_UNSUPPORTED'
   | 'EMPTY_GROUP'

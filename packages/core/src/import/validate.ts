@@ -2,6 +2,8 @@ import { formatA } from '../calc/units';
 import { addChargePoint, usedIps, type NewChargePointInput } from '../edit/operations';
 import { newId } from '../ids';
 import {
+  CP_DATA_FIELDS,
+  CP_DATA_FIELD_LABEL,
   IEC_MIN_CHARGING_CURRENT_A,
   LibraryModelIdSchema,
   MAX_PLAUSIBLE_CURRENT_A,
@@ -26,9 +28,10 @@ import {
 /**
  * Validierung und Übernahme des CSV-Imports (Kap. 11.2).
  *
- * Grundsatz: Eine Zeile wird nur übernommen, wenn sie eindeutig und fachlich gültig ist. Fehlende
- * optionale Werte ergänzt dieselbe Logik wie beim Anlegen eines Ladepunkts (`addChargePoint`),
- * die Vorschau zeigt daher genau die Werte, die später im Projekt stehen.
+ * Grundsatz: Eine Zeile wird nur übernommen, wenn sie eindeutig und fachlich gültig ist. Nichts
+ * wird von anderen Ladepunkten übernommen. Fehlende elektrische Angaben (CP_DATA_FIELDS) bekommen
+ * neutrale Platzhalter und werden am Ladepunkt als fehlend vermerkt; die Prüfung meldet sie
+ * (CP_DATA_MISSING) und sperrt den Export, bis sie nachgetragen sind.
  */
 
 export type ImportSeverity = 'error' | 'warning';
@@ -217,8 +220,7 @@ export function validateImport(
 
   const takenIps = usedIps(project);
   const groups = groupIndex(project);
-  // Arbeitskopie: nimmt die gültigen Zeilen nacheinander auf, damit Standardwerte wie beim
-  // Anlegen vom jeweils vorherigen Ladepunkt übernommen werden.
+  // Arbeitskopie: nimmt die gültigen Zeilen nacheinander auf (für Bezeichnungen und IPs).
   const sim: Project = { ...project, chargePoints: [...project.chargePoints] };
 
   const rows = csv.rows.map((row, index): ImportRowResult => {
@@ -373,7 +375,7 @@ export function validateImport(
       return { line, status: 'error', issues };
     }
 
-    // Standardwerte wie beim Anlegen im Editor (vom vorherigen Ladepunkt bzw. neutrale Startwerte)
+    // Neutrale Platzhalter aus addChargePoint, ohne Vorlage eines anderen Ladepunkts
     const input: NewChargePointInput = {
       id: '',
       groupId: groupEntry.group.id,
@@ -390,14 +392,38 @@ export function validateImport(
       ...(category !== undefined ? { category } : {}),
       ...(notes !== undefined ? { notes } : {}),
     };
-    const cp = addChargePoint(sim, input);
+    const cp = addChargePoint({ ...sim, chargePoints: [] }, input);
+    sim.chargePoints.push(cp);
     cp.network.ip = ip;
+    const missing = CP_DATA_FIELDS.filter((f) => !given.has(f));
+    // Platzhalter passend zu bekannten Modellgrenzen wählen, damit sie keine Folgefehler erzeugen
+    const known = catalog.get(cp.libraryModelId)?.electrical;
+    if (known) {
+      if (!given.has('minA') && known.minA !== null) cp.minA = Math.max(cp.minA, known.minA);
+      if (!given.has('maxA') && known.maxA !== null) cp.maxA = known.maxA;
+      if (!given.has('fuseA') && cp.fuseA < cp.maxA) cp.fuseA = cp.maxA;
+      if (
+        !given.has('phases') &&
+        known.phases !== null &&
+        known.phases.length > 0 &&
+        !known.phases.includes(cp.phases)
+      )
+        cp.phases = known.phases[0] ?? cp.phases;
+    }
+    if (missing.length > 0) {
+      cp.missingFields = missing;
+      report(
+        'warning',
+        undefined,
+        `Fehlt in der Datei: ${missing.map((f) => CP_DATA_FIELD_LABEL[f]).join(', ')} – wird als Platzhalter übernommen und am Ladepunkt als fehlend markiert (Export gesperrt, bis nachgetragen)`,
+      );
+    }
     if (port !== undefined) cp.network.port = port;
     if (unitId !== undefined) cp.network.unitId = unitId;
 
     // Fachliche Prüfung der endgültigen Werte
     const origin = (key: ImportFieldKey) =>
-      given.has(key) ? '' : ' (Standardwert, in der Datei leer)';
+      given.has(key) ? '' : ' (Platzhalter, in der Datei leer)';
     if (cp.minA < IEC_MIN_CHARGING_CURRENT_A) {
       report(
         'error',
@@ -424,16 +450,9 @@ export function validateImport(
       report(
         'error',
         'libraryModelId',
-        'Modell-ID fehlt. Es gibt keinen vorherigen Ladepunkt, von dem sie übernommen werden kann.',
+        'Modell-ID fehlt. Ohne Modell lassen sich Register und Grenzen nicht zuordnen.',
       );
     } else {
-      if (!given.has('libraryModelId')) {
-        report(
-          'warning',
-          'libraryModelId',
-          `Modell-ID leer – übernommen vom vorherigen Ladepunkt: ${cp.libraryModelId}`,
-        );
-      }
       const model = catalog.get(cp.libraryModelId);
       if (!model) {
         report(
@@ -521,7 +540,12 @@ export function applyImport(
 ): string[] {
   return rows.map(({ chargePoint }) => {
     const id = idFactory();
-    draft.chargePoints.push({ ...chargePoint, id, network: { ...chargePoint.network } });
+    draft.chargePoints.push({
+      ...chargePoint,
+      id,
+      network: { ...chargePoint.network },
+      ...(chargePoint.missingFields ? { missingFields: [...chargePoint.missingFields] } : {}),
+    });
     return id;
   });
 }

@@ -1,5 +1,6 @@
 import { analyzeProject, type ProjectAnalysis } from '../calc/analysis';
 import type { Project } from '../model';
+import { cpDataMissingRule } from './rules/data-missing';
 import { dupIpRule } from './rules/dup-ip';
 import { emptyGroupRule, meterMissingRule } from './rules/hints';
 import { minSumRule } from './rules/min-sum';
@@ -14,6 +15,7 @@ export const RULES: readonly Rule[] = [
   structureRule,
   cpNoGroupRule,
   cpMinMaxRule,
+  cpDataMissingRule,
   dupIpRule,
   modelIncompleteRule,
   phaseSwitchRule,

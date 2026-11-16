@@ -199,3 +199,15 @@
 .cp-finding__rule {
   font-size: var(--fs-xs);
 }
+
+/* Angabe fehlt (CSV-Import): Platzhalter, bis nachgetragen oder bestätigt */
+.cp-form__missing {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+  margin: var(--space-1) 0 0;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--color-warning-text);
+}

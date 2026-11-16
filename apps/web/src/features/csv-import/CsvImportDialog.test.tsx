@@ -24,12 +24,14 @@ const p = () => s().project as Project;
 
 /** 20 Ladepunkte, Zeile 7 mit ungültiger IP, Zeile 14 mit unbekannter Gruppe. */
 function twentyRowCsv(): string {
-  const lines = ['Ladepunkt;Gruppe;Modell-ID;IP-Adresse;Min. Strom (A);Max. Strom (A);Phasenlage'];
+  const lines = [
+    'Ladepunkt;Gruppe;Modell-ID;IP-Adresse;Min. Strom (A);Max. Strom (A);Phasenlage;Absicherung (A);Phasen;Phasenumschaltung',
+  ];
   for (let i = 0; i < 20; i++) {
     const ip = i === 5 ? '192.168.1.300' : `192.168.10.${100 + i}`;
     const group = i === 12 ? 'Unbekannt' : i % 2 === 0 ? 'Mieter' : 'UV-TG1 › Flotte';
     lines.push(
-      `LP${10 + i};${group};test/wallbox@1;${ip};6,0;16 A;L${(i % 3) + 1}-L${((i + 1) % 3) + 1}-L${((i + 2) % 3) + 1}`,
+      `LP${10 + i};${group};test/wallbox@1;${ip};6,0;16 A;L${(i % 3) + 1}-L${((i + 1) % 3) + 1}-L${((i + 2) % 3) + 1};32;3;nein`,
     );
   }
   return `\uFEFF${lines.join('\r\n')}\r\n`;
@@ -98,7 +100,7 @@ describe('CsvImportDialog', () => {
     expect(s().past.at(-1)?.label).toBe('18 Ladepunkte importiert');
     expect(p().chargePoints.map((c) => c.label)).not.toContain('LP15');
     expect(p().chargePoints.find((c) => c.label === 'LP11')).toMatchObject({
-      network: { ip: '192.168.10.101', port: 502, unitId: 1 },
+      network: { ip: '192.168.10.101', port: 502 },
       phaseRotation: 'L2-L3-L1',
       minA: 6,
       maxA: 16,
@@ -118,7 +120,7 @@ describe('CsvImportDialog', () => {
     renderDialog();
     await user.upload(
       screen.getByLabelText('CSV-Datei wählen'),
-      csvFile('Name,Adresse,Gruppe\nLP10,192.168.10.50,Mieter\n'),
+      csvFile('Name,Adresse,Gruppe,Modell-ID\nLP10,192.168.10.50,Mieter,test/wallbox@1\n'),
     );
     await screen.findByText(/Trennzeichen Komma/);
     expect(
@@ -163,13 +165,17 @@ describe('CsvImportDialog', () => {
     renderDialog();
     await user.upload(
       screen.getByLabelText('CSV-Datei wählen'),
-      csvFile('Bezeichnung;Gruppe;IP\nLP10;Mieter;192.168.10.50\n'),
+      csvFile('Bezeichnung;Gruppe;Modell-ID;IP\nLP10;Mieter;test/wallbox@1;192.168.10.50\n'),
     );
     await user.click(await screen.findByRole('button', { name: 'Weiter zur Vorschau' }));
     expect(screen.getByRole('status')).toHaveTextContent('1 fehlerfrei (davon 1 mit Hinweis)');
-    expect(screen.getByText(/Hinweis: Zeile 2: Modell-ID leer – übernommen/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Hinweis: Zeile 2: Fehlt in der Datei: Absicherung, Mindeststrom/),
+    ).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: '1 fehlerfreie Zeile importieren' }));
     expect(s().past.at(-1)?.label).toBe('1 Ladepunkt importiert');
+    // Fehlende Angaben bleiben am Ladepunkt vermerkt, bis sie nachgetragen sind
+    expect(p().chargePoints.find((c) => c.label === 'LP10')?.missingFields).toHaveLength(6);
   });
 
   it('meldet kaputte Anführungszeichen und leere Dateien', async () => {

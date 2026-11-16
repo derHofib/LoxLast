@@ -50,6 +50,10 @@ test('Abnahme MS 5: 20 Ladepunkte per CSV, Mindeststrom gemeinsam ändern, ABL u
   await list.getByRole('option', { name: /TG-13/ }).click();
   await expect(page.getByLabel('Mindeststrom')).toHaveValue('8');
 
+  // Was in der Datei fehlte, ist am Ladepunkt markiert und wird in der Prüfung gemeldet
+  await expect(page.getByText('Fehlt – Platzhalter, bitte nachtragen').first()).toBeVisible();
+  await expect(page.getByText(/Angaben fehlen bei 20 Ladepunkten/).first()).toBeVisible();
+
   // ABL-Modell ohne Herstellerdoku: unvollständig, Export gesperrt
   const info = page.getByRole('complementary', { name: 'Infos' });
   await expect(info.getByText(/^unvollständig \(\d+ Angaben fehlen\)/)).toBeVisible();
