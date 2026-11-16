@@ -2,6 +2,7 @@ import { Button } from '@lastplan/ui';
 import { Link } from 'react-router-dom';
 import { useProjectStore } from '../state/projectStore';
 import type { SaveStatus } from '../storage/autosave';
+import { ThemeSwitch } from '../theme/ThemeSwitch';
 
 const STATUS_TEXT: Record<SaveStatus | 'pending', string> = {
   saved: 'Gespeichert',
@@ -33,11 +34,13 @@ export function AppHeader({ saveStatus }: { saveStatus?: SaveStatus | undefined 
         <span className="app-title">LastPlan</span>
       </Link>
       {project ? (
-        <>
-          <span className="app-project" title={project.name}>
-            {project.name}
-          </span>
-          <div className="app-header__tools">
+        <span className="app-project" title={project.name}>
+          {project.name}
+        </span>
+      ) : null}
+      <div className="app-header__tools">
+        {project ? (
+          <>
             <span className="app-save" role="status" data-status={status}>
               {STATUS_TEXT[status]}
             </span>
@@ -61,9 +64,10 @@ export function AppHeader({ saveStatus }: { saveStatus?: SaveStatus | undefined 
             >
               Wiederholen
             </Button>
-          </div>
-        </>
-      ) : null}
+          </>
+        ) : null}
+        <ThemeSwitch />
+      </div>
     </header>
   );
 }
