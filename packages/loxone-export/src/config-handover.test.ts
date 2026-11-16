@@ -483,7 +483,11 @@ describe('renderHandoverScript', () => {
   it('Modbus: bricht ab, wenn Modbusserver fehlt, doppelt ist oder der Aktor-Eingang unklar', () => {
     const plan = buildHandoverPlan(sample(), MODELS);
     const missing = fakeCfg(1, ['10.0.0.1:502']);
-    expect(() => run(plan, missing.cfg)).toThrow(/Modbusserver fehlt in Config: 192.168.10.21:502/);
+    expect(() => run(plan, missing.cfg)).toThrow(
+      'Modbusserver fehlt in Config: 192.168.10.21:502. Gefunden (Name „Adresse“): Server 0 „10.0.0.1:502“',
+    );
+    const none = fakeCfg(1, []);
+    expect(() => run(plan, none.cfg)).toThrow('Gefunden (Name „Adresse“): keiner');
     expect(missing.calls.some(([m]) => m === 'add_page')).toBe(false);
     const twice = fakeCfg(1, ['192.168.10.21:502', '192.168.10.21:502']);
     expect(() => run(plan, twice.cfg)).toThrow(/mehrfach/);

@@ -558,11 +558,14 @@ if (plan.virtualInputs.length > 0) {
 
 // Modbusserver über ihre Adresse finden (vom Nutzer angelegt).
 const serverByAddress = {};
+const serversSeen = [];
 const findServers = (n) => {
   if (n.uuid && n.type === plan.modbus.types.server) {
     const props = cfg.get_block_properties({ uuid: n.uuid }).properties;
     const a = props.find((p) => p.id === plan.modbus.serverAddress);
-    if (a && typeof a.value === 'string') (serverByAddress[a.value.trim()] = serverByAddress[a.value.trim()] || []).push(n.uuid);
+    const value = a && typeof a.value === 'string' ? a.value.trim() : '';
+    serversSeen.push(n.name + ' „' + value + '“');
+    if (value) (serverByAddress[value] = serverByAddress[value] || []).push(n.uuid);
   }
   for (const c of n.children || []) findServers(c);
 };
@@ -570,7 +573,9 @@ if (plan.modbusDevices.length > 0) for (const r of tree.roots) findServers(r);
 const wanted = [...new Set(plan.modbusDevices.map((d) => d.serverAddress))];
 const missing = wanted.filter((a) => !serverByAddress[a]);
 const twice = wanted.filter((a) => serverByAddress[a] && serverByAddress[a].length > 1);
-if (missing.length > 0) throw new Error('Modbusserver fehlt in Config: ' + missing.join(', '));
+if (missing.length > 0) {
+  throw new Error('Modbusserver fehlt in Config: ' + missing.join(', ') + '. Gefunden (Name „Adresse“): ' + (serversSeen.join('; ') || 'keiner'));
+}
 if (twice.length > 0) throw new Error('Modbusserver mehrfach mit gleicher Adresse: ' + twice.join(', '));
 
 const page = uuidOf(cfg.add_page({ name: plan.pageName, context_uuid: miniserver.uuid }));
