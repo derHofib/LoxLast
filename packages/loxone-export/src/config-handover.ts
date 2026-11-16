@@ -3,6 +3,7 @@ import {
   kwFromA,
   minPhase,
   siteAvailableA,
+  structureHash,
   type Cluster,
   type Group,
   type NamingField,
@@ -126,7 +127,12 @@ export interface PlannedVirtualInput {
 }
 
 export interface HandoverPlan {
+  /** Seitenname mit Kennung, z. B. „LastPlan – Tiefgarage [lastplan:3f9a0c7e21b4:1a2b3c4d]“. */
   pageName: string;
+  /** Anfang der Kennung ohne Struktur-Hash; daran erkennt ein späterer Lauf die Seite (6.6). */
+  pageMatch: string;
+  /** Kurzer Struktur-Hash in der Kennung, zum Vergleich mit einer vorhandenen Seite. */
+  pageHash: string;
   voltageV: number;
   virtualInputs: PlannedVirtualInput[];
   loadManagers: PlannedLoadManager[];
@@ -179,6 +185,35 @@ const searchHint = (names: readonly string[]) => {
   const cut = Math.max(raw.lastIndexOf('_'), raw.lastIndexOf(' '));
   const prefix = cut > 0 ? raw.slice(0, cut + 1) : raw;
   return names.length > 1 && prefix.length >= 3 ? ` (Suche: „${prefix}“)` : '';
+};
+
+/**
+ * Seitenkennung (Umsetzungsplan 6.6, ADR 0013 Punkt 5): `[lastplan:<Projekt>:<Struktur>]` im
+ * Seitennamen. Projekt = die letzten 12 Zeichen der Projekt-ID (UUID v7: dort steckt der
+ * Zufallsteil, vorn die Uhrzeit), Struktur = die ersten 8 Zeichen des Struktur-Hashes. Der
+ * Seitenname ist die einzige Stelle, die `get_pages` zurückgibt; ein Notiz-Baustein wäre erst nach
+ * `get_page` je Seite lesbar.
+ */
+export function pageTag(project: Project): { match: string; hash: string; tag: string } {
+  const id = project.id.replace(/-/g, '').slice(-12);
+  const full = structureHash(project);
+  const hash = (full.split(':')[1] ?? full).slice(0, 8);
+  const match = `[lastplan:${id}:`;
+  return { match, hash, tag: `${match}${hash}]` };
+}
+
+/** Liest den Struktur-Hash aus einem Seitennamen mit Kennung, sonst undefined. */
+export function hashFromPageName(name: string, match: string): string | undefined {
+  const at = name.indexOf(match);
+  if (at < 0) return undefined;
+  const rest = name.slice(at + match.length);
+  const end = rest.indexOf(']');
+  return end > 0 ? rest.slice(0, end) : undefined;
+}
+
+const pageFields = (project: Project) => {
+  const t = pageTag(project);
+  return { pageName: `LastPlan – ${project.name} ${t.tag}`, pageMatch: t.match, pageHash: t.hash };
 };
 
 /** Cluster-Limit in A je Phase: bei abweichenden Phasen-Limits das kleinste. */
@@ -430,7 +465,7 @@ export function buildHandoverPlan(
   );
 
   return {
-    pageName: `LastPlan – ${project.name}`,
+    ...pageFields(project),
     voltageV: V,
     virtualInputs,
     loadManagers,
@@ -446,7 +481,7 @@ export function buildHandoverPlan(
 
 function emptyPlan(project: Project, blockers: string[]): HandoverPlan {
   return {
-    pageName: `LastPlan – ${project.name}`,
+    ...pageFields(project),
     voltageV: project.settings.voltageV,
     virtualInputs: [],
     loadManagers: [],
@@ -462,15 +497,25 @@ function emptyPlan(project: Project, blockers: string[]): HandoverPlan {
 
 /**
  * Skript für `code_run` (ein Undo-Schritt). Daten gehen als JSON-Literal hinein, nie als
- * zusammengesetzter Code. Verwendete `cfg`-Methoden laut `sdk_describe`: get_tree,
- * get_insertable_types, get_block_properties, get_block, add_page, add_block, set_block_property, insert_object,
- * add_object_ref, connect_blocks, arrange_page, validate_project. Alles, was fehlen kann
- * (Miniserver, Modbusserver), wird vor der ersten Änderung geprüft. Gibt die angelegten UUIDs
- * je Plan-Schlüssel zurück.
+ * zusammengesetzter Code. Verwendete `cfg`-Methoden laut `sdk_describe`: get_tree, get_pages,
+ * get_page, get_insertable_types, get_block_properties, get_block, add_page, add_block,
+ * set_block_property, insert_object, add_object_ref, connect_blocks, remove_block, arrange_page,
+ * validate_project. Alles, was fehlen kann (Miniserver, Modbusserver), und alles, was doppelt
+ * entstehen würde, wird vor der ersten Änderung geprüft.
+ *
+ * Wiedererkennung (6.6): Gibt es schon eine Seite mit der Kennung dieses Projekts, ändert das
+ * Skript ohne `replace` nichts und meldet sie (`outcome: 'exists'`). Mit `replace` entfernt es
+ * zuerst, was der letzte Lauf angelegt hat (Seiten samt Bausteinen, virtuelle Eingänge,
+ * Modbus-Geräte laut `previous`), und legt dann neu an – alles in derselben Undo-Gruppe.
  */
 /** Was das Skript braucht; das Gateway erhält genau diese Felder (protocol: ConfigHandoverPlan). */
 export interface HandoverScriptInput {
   pageName: string;
+  pageMatch: string;
+  /** Vorhandene Seite mit derselben Kennung ersetzen statt abbrechen. */
+  replace?: boolean;
+  /** Was der letzte Lauf angelegt hat (aus dem ExportRecord); wird beim Ersetzen entfernt. */
+  previous?: PreviousHandover;
   loadManagers: Array<
     Pick<PlannedLoadManager, 'key' | 'title' | 'maxKw'> & { parent?: PlannedLoadManager['parent'] }
   >;
@@ -490,10 +535,22 @@ export interface HandoverScriptInput {
   blockers?: readonly string[];
 }
 
+/** UUIDs aus einem früheren Lauf: Seiten (auch Folgeseiten) und Objekte im Peripheriebaum. */
+export interface PreviousHandover {
+  pages: string[];
+  periphery: string[];
+}
+
 /** Nur die Felder, die das Gateway zum Ausführen braucht (ohne Anzeige-Angaben). */
-export function handoverScriptInput(plan: HandoverPlan): HandoverScriptInput {
+export function handoverScriptInput(
+  plan: HandoverPlan,
+  options: { replace?: boolean; previous?: PreviousHandover | undefined } = {},
+): HandoverScriptInput {
   return {
     pageName: plan.pageName,
+    pageMatch: plan.pageMatch,
+    replace: options.replace ?? false,
+    previous: options.previous ?? { pages: [], periphery: [] },
     loadManagers: plan.loadManagers.map(({ key, title, maxKw, parent }) => ({
       key,
       title,
@@ -513,6 +570,9 @@ export function renderHandoverScript(plan: HandoverScriptInput): string {
   }
   const data = {
     pageName: plan.pageName,
+    pageMatch: plan.pageMatch,
+    replace: plan.replace ?? false,
+    previous: plan.previous ?? { pages: [], periphery: [] },
     types: LOXONE_TYPES,
     props: LOXONE_PROPERTIES,
     modeOverload: LOAD_MANAGER_MODE_OVERLOAD,
@@ -620,6 +680,56 @@ if (missing.length > emptyServers.length) {
 }
 if (twice.length > 0) throw new Error('Modbusserver mehrfach mit gleicher Adresse: ' + twice.join(', '));
 
+// Wiedererkennung (6.6): Seiten dieses Projekts (Kennung im Namen) und Folgeseiten des letzten
+// Laufs. Ohne replace: nichts ändern, nur melden.
+const prevPages = new Set(plan.previous.pages);
+const prevPeriphery = new Set(plan.previous.periphery);
+const ours = cfg.get_pages({}).pages.filter((p) => p.name.indexOf(plan.pageMatch) !== -1 || prevPages.has(p.uuid));
+if (ours.length > 0 && !plan.replace) {
+  return { outcome: 'exists', existingPages: ours.map((p) => ({ name: p.name, uuid: p.uuid })), created: {}, pages: [], periphery: [], removed: 0, validation: null };
+}
+
+// Was der letzte Lauf im Peripheriebaum angelegt hat und noch da ist.
+const byUuid = {};
+const index = (n) => { if (n.uuid) byUuid[n.uuid] = n; for (const c of n.children || []) index(c); };
+for (const r of tree.roots) index(r);
+const removePeriphery = plan.previous.periphery.filter((u) => byUuid[u]);
+const goingAway = new Set();
+const markGone = (n) => { if (n.uuid) goingAway.add(n.uuid); for (const c of n.children || []) markGone(c); };
+for (const u of removePeriphery) markGone(byUuid[u]);
+
+// Doppelte Namen vermeiden: Ein virtueller Eingang oder ein Modbus-Gerät mit einem geplanten Namen,
+// das nicht entfernt wird, stammt vermutlich aus einer älteren Übergabe ohne Kennung.
+const viNames = new Set(plan.virtualInputs.map((v) => v.name));
+const devNames = new Set(plan.modbusDevices.map((d) => d.name));
+const clashes = [];
+const findClashes = (n) => {
+  if (n.uuid && !goingAway.has(n.uuid)) {
+    if (n.type === plan.types.virtualInput && viNames.has(n.name)) clashes.push(n.name);
+    if (n.type === plan.modbus.types.device && devNames.has(n.name)) clashes.push(n.name);
+  }
+  for (const c of n.children || []) findClashes(c);
+};
+for (const r of tree.roots) findClashes(r);
+if (clashes.length > 0) {
+  throw new Error('In Config gibt es schon Objekte mit diesen Namen: ' + clashes.join(', ') + '. Vermutlich stammen sie aus einer älteren Übergabe. Bitte sie und die alte LastPlan-Seite in Config löschen, dann neu übergeben.');
+}
+
+// Ab hier wird geändert. Zuerst das Alte entfernen: Peripherie (mit ihren Ein-/Ausgängen und
+// Referenzen), dann jede Seite Baustein für Baustein und die leere Seite selbst.
+let removed = 0;
+for (const u of removePeriphery) { cfg.remove_block({ uuid: u }); removed++; }
+for (const p of ours) {
+  let guard = 0;
+  let blocks;
+  while ((blocks = cfg.get_page({ uuid: p.uuid }).page.functionBlocks).length > 0) {
+    if (++guard > 20000) throw new Error('Seite „' + p.name + '“ lässt sich nicht leeren.');
+    cfg.remove_block({ uuid: blocks[0].uuid });
+    removed++;
+  }
+  cfg.remove_block({ uuid: p.uuid });
+}
+
 missing.forEach((address, i) => {
   const uuid = emptyServers[i];
   cfg.set_block_property({ uuid, property_id: plan.modbus.serverAddress, value: address });
@@ -719,7 +829,13 @@ for (const d of plan.modbusDevices) {
   }
 }
 
-cfg.arrange_page({ page_uuid: page });
+const arranged = cfg.arrange_page({ page_uuid: page });
+const overflow = ((arranged && arranged.overflowPages) || []).map((p) => p.uuid).filter(Boolean);
+const periphery = plan.virtualInputs.map((v) => created[v.key]).concat(plan.modbusDevices.map((d) => created[d.key]));
 const validation = cfg.validate_project();
-return { created, validation };
+return {
+  outcome: ours.length > 0 ? 'replaced' : 'created',
+  existingPages: ours.map((p) => ({ name: p.name, uuid: p.uuid })),
+  created, pages: [page].concat(overflow), periphery, removed, validation,
+};
 `;

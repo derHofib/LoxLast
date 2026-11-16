@@ -79,8 +79,21 @@ const PlanTitleSchema = z.string().trim().min(1).max(200);
 const KwSchema = z.number().finite().min(0).max(100000);
 const ParentSchema = z.object({ key: PlanKeySchema, slot: z.number().int().min(1).max(12) });
 
+const ConfigUuidSchema = z.string().regex(/^[0-9a-zA-Z-]{1,64}$/, 'Ungültige UUID');
+
 export const ConfigHandoverPlanSchema = z.object({
   pageName: PlanTitleSchema,
+  /** Anfang der Seitenkennung (Umsetzungsplan 6.6), z. B. „[lastplan:3f9a0c7e21b4:“. */
+  pageMatch: z.string().regex(/^\[lastplan:[0-9a-zA-Z]{1,36}:$/, 'Ungültige Seitenkennung'),
+  /** Vorhandene Seite mit derselben Kennung ersetzen; sonst meldet die Übergabe sie nur. */
+  replace: z.boolean().default(false),
+  /** Was der letzte Lauf angelegt hat; wird beim Ersetzen entfernt, sofern noch vorhanden. */
+  previous: z
+    .object({
+      pages: z.array(ConfigUuidSchema).max(100),
+      periphery: z.array(ConfigUuidSchema).max(10000),
+    })
+    .default({ pages: [], periphery: [] }),
   loadManagers: z
     .array(
       z.object({
@@ -136,6 +149,8 @@ export const ConfigHandoverPlanSchema = z.object({
     .max(5000),
 });
 export type ConfigHandoverPlan = z.infer<typeof ConfigHandoverPlanSchema>;
+/** Was die App schickt (replace und previous dürfen fehlen). */
+export type ConfigHandoverPlanInput = z.input<typeof ConfigHandoverPlanSchema>;
 
 export const ConfigHandoverRequestSchema = z.object({ plan: ConfigHandoverPlanSchema });
 export type ConfigHandoverRequest = z.infer<typeof ConfigHandoverRequestSchema>;
@@ -149,9 +164,23 @@ export const ConfigValidationIssueSchema = z.object({
 export type ConfigValidationIssue = z.infer<typeof ConfigValidationIssueSchema>;
 
 export const ConfigHandoverResultSchema = z.object({
+  /**
+   * created: neue Seite angelegt; replaced: vorhandene Seite(n) dieses Projekts ersetzt;
+   * exists: Seite gibt es schon, ohne „ersetzen“ wurde nichts geändert.
+   */
+  outcome: z.enum(['created', 'replaced', 'exists']).default('created'),
+  /** Seiten mit der Kennung dieses Projekts, die vor dem Lauf da waren. */
+  existingPages: z.array(z.object({ name: z.string(), uuid: z.string() })).default([]),
   /** UUIDs der angelegten Objekte je Plan-Schlüssel. */
   created: z.record(z.string(), z.string()),
-  validation: z.object({ valid: z.boolean(), issues: z.array(ConfigValidationIssueSchema) }),
+  /** Angelegte Seiten (mit Folgeseiten) und Peripherie – für das Ersetzen beim nächsten Lauf. */
+  pages: z.array(z.string()).default([]),
+  periphery: z.array(z.string()).default([]),
+  /** Wie viele Objekte beim Ersetzen entfernt wurden. */
+  removed: z.number().int().min(0).default(0),
+  validation: z
+    .object({ valid: z.boolean(), issues: z.array(ConfigValidationIssueSchema) })
+    .nullable(),
 });
 export type ConfigHandoverResult = z.infer<typeof ConfigHandoverResultSchema>;
 

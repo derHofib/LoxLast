@@ -3,7 +3,10 @@ import { NAMING_SCHEME_V1, createProject, type ChargePoint, type Project } from 
 import type { RegisterDef, WallboxModel } from '@lastplan/wallbox-library';
 import {
   buildHandoverPlan,
+  handoverScriptInput,
+  hashFromPageName,
   LOAD_MANAGER_SLOTS,
+  pageTag,
   renderHandoverScript,
   renderName,
   type HandoverPlan,
@@ -104,7 +107,8 @@ describe('buildHandoverPlan', () => {
   it('bildet Standort, Cluster und Gruppen auf Lastmanager und Wallbox Manager ab', () => {
     const plan = buildHandoverPlan(sample(), MODELS);
     expect(plan.blockers).toEqual([]);
-    expect(plan.pageName).toBe('LastPlan – Tiefgarage');
+    expect(plan.pageName).toMatch(/^LastPlan – Tiefgarage \[lastplan:[0-9a-f]{12}:[0-9a-f]{8}\]$/);
+    expect(plan.pageName).toContain(plan.pageMatch + plan.pageHash + ']');
     expect(
       plan.loadManagers.map((l) => [l.key.split(':')[0], l.title, l.maxKw, l.parent?.slot]),
     ).toEqual([
@@ -247,8 +251,28 @@ function fakeCfg(
   miniservers = 1,
   servers: string[] = ['192.168.10.21:502'],
   actorInputs = [{ key: 'AI', dataType: 'analog' }],
-  { msType = 'MiniserverGen2', virtualAt = 'vin0' }: { msType?: string; virtualAt?: string } = {},
+  {
+    msType = 'MiniserverGen2',
+    virtualAt = 'vin0',
+    pages = [],
+    virtuals = [],
+    devices = [],
+  }: {
+    msType?: string;
+    virtualAt?: string;
+    /** Vorhandene Seiten mit ihren Bausteinen. */
+    pages?: Array<{ name: string; uuid: string; blocks: string[] }>;
+    /** Vorhandene virtuelle Eingänge / Modbus-Geräte (unter Server 0). */
+    virtuals?: Array<{ name: string; uuid: string }>;
+    devices?: Array<{ name: string; uuid: string }>;
+  } = {},
 ) {
+  const node = (type: string) => (o: { name: string; uuid: string }) => ({
+    ...o,
+    type,
+    childCount: 0,
+    children: [],
+  });
   const calls: Array<[string, Record<string, unknown>]> = [];
   const dataTypes = new Map<string, number>();
   const ioProps = (uuid: string) => {
@@ -283,15 +307,15 @@ function fakeCfg(
                 name: 'Virtuelle Eingänge',
                 uuid: `vin${i}`,
                 type: 'VirtualInCaption',
-                childCount: 0,
-                children: [],
+                childCount: virtuals.length,
+                children: virtuals.map(node('VirtualIn')),
               },
               ...servers.map((_, j) => ({
                 name: `Server ${j}`,
                 uuid: `srv${j}`,
                 type: 'ModbusServer',
-                childCount: 0,
-                children: [],
+                childCount: j === 0 ? devices.length : 0,
+                children: j === 0 ? devices.map(node('ModbusDev')) : [],
               })),
             ],
           })),
@@ -331,15 +355,42 @@ function fakeCfg(
     connect_blocks: rec('connect_blocks'),
     insert_object: rec('insert_object', () => ({ object: { uuid: next() }, success: true })),
     add_object_ref: rec('add_object_ref', () => ({ block: { uuid: next() }, success: true })),
-    arrange_page: rec('arrange_page'),
+    arrange_page: rec('arrange_page', () => ({ arranged: true, overflowPages: [] })),
+    get_pages: rec('get_pages', () => ({
+      pages: pages.map((p) => ({ name: p.name, uuid: p.uuid, blockCount: p.blocks.length })),
+    })),
+    get_page: rec('get_page', (p) => {
+      const page = pages.find((x) => x.uuid === p['uuid'])!;
+      return { page: { ...page, functionBlocks: page.blocks.map((uuid) => ({ uuid })) } };
+    }),
+    remove_block: rec('remove_block', (p) => {
+      const uuid = String(p['uuid']);
+      const i = pages.findIndex((x) => x.uuid === uuid);
+      if (i >= 0) {
+        // wie Config: nur eine leere Seite lässt sich entfernen
+        if (pages[i]!.blocks.length > 0) throw new Error('Page is not empty');
+        pages.splice(i, 1);
+      }
+      for (const page of pages) page.blocks = page.blocks.filter((b) => b !== uuid);
+      return { success: true };
+    }),
     validate_project: rec('validate_project', () => ({ valid: true, issues: [] })),
   };
   return { cfg, calls };
 }
 
-const run = (plan: HandoverPlan, cfg: unknown) =>
-  new Function('cfg', renderHandoverScript(plan))(cfg) as {
+const run = (
+  plan: HandoverPlan,
+  cfg: unknown,
+  options: Parameters<typeof handoverScriptInput>[1] = {},
+) =>
+  new Function('cfg', renderHandoverScript({ ...handoverScriptInput(plan, options) }))(cfg) as {
+    outcome: string;
+    existingPages: Array<{ name: string; uuid: string }>;
     created: Record<string, string>;
+    pages: string[];
+    periphery: string[];
+    removed: number;
     validation: unknown;
   };
 
@@ -350,6 +401,9 @@ describe('renderHandoverScript', () => {
     expect(used).toEqual(
       new Set([
         'get_tree',
+        'get_pages',
+        'get_page',
+        'remove_block',
         'get_insertable_types',
         'get_block_properties',
         'get_block',
@@ -371,9 +425,15 @@ describe('renderHandoverScript', () => {
     const res = run(plan, cfg);
     expect(res.validation).toEqual({ valid: true, issues: [] });
     expect(calls.find(([m]) => m === 'add_page')?.[1]).toEqual({
-      name: 'LastPlan – Tiefgarage',
+      name: plan.pageName,
       context_uuid: 'ms0',
     });
+    expect(res.outcome).toBe('created');
+    expect(res.pages).toEqual(['page']);
+    expect(res.periphery).toEqual([
+      res.created['vi:site'],
+      ...plan.modbusDevices.map((d) => res.created[d.key]),
+    ]);
     const blocks = calls.filter(([m]) => m === 'add_block').map(([, p]) => [p['type'], p['title']]);
     expect(blocks).toEqual([
       ['LoadShed', 'LM_Standort'],
@@ -650,6 +710,98 @@ describe('renderHandoverScript', () => {
     expect(script).not.toContain('cfg.remove_block({uuid:"a"})');
     const { cfg, calls } = fakeCfg();
     run(buildHandoverPlan(p, MODELS), cfg);
-    expect(calls.find(([m]) => m === 'add_page')?.[1]['name']).toBe(`LastPlan – ${p.name}`);
+    expect(calls.find(([m]) => m === 'add_page')?.[1]['name']).toBe(
+      `LastPlan – ${p.name} ${pageTag(p).tag}`,
+    );
+  });
+});
+
+describe('Seitenkennung (6.6)', () => {
+  it('Kennung: Zufallsteil der Projekt-ID und Struktur-Hash; Hash ändert sich mit der Struktur', () => {
+    const p = sample();
+    const t = pageTag(p);
+    expect(t.match).toBe(`[lastplan:${p.id.replace(/-/g, '').slice(-12)}:`);
+    expect(hashFromPageName(`LastPlan – X ${t.tag}`, t.match)).toBe(t.hash);
+    expect(hashFromPageName('LastPlan – X', t.match)).toBeUndefined();
+    const q = sample();
+    q.site.buildingReserveA = 90;
+    expect(pageTag({ ...q, id: p.id }).hash).not.toBe(t.hash);
+    expect(pageTag({ ...p, name: 'Anders' }).hash).toBe(t.hash);
+  });
+
+  it('vorhandene Seite: ohne „ersetzen“ wird nichts geändert, nur gemeldet', () => {
+    const plan = buildHandoverPlan(sample(), MODELS);
+    const old = { name: `LastPlan – Alt ${plan.pageMatch}00000000]`, uuid: 'old', blocks: ['b1'] };
+    const other = { name: 'Licht', uuid: 'licht', blocks: ['b9'] };
+    const { cfg, calls } = fakeCfg(1, undefined, undefined, { pages: [old, other] });
+    const res = run(plan, cfg);
+    expect(res).toMatchObject({
+      outcome: 'exists',
+      existingPages: [{ name: old.name, uuid: 'old' }],
+      created: {},
+      validation: null,
+    });
+    const changing = [
+      'add_page',
+      'add_block',
+      'set_block_property',
+      'insert_object',
+      'remove_block',
+    ];
+    expect(calls.filter(([m]) => changing.includes(m))).toEqual([]);
+  });
+
+  it('ersetzen: entfernt Peripherie und Seiten des letzten Laufs, fremde Seiten bleiben', () => {
+    const plan = buildHandoverPlan(sample(), MODELS);
+    const pages = [
+      { name: `LastPlan – Alt ${plan.pageMatch}00000000]`, uuid: 'old', blocks: ['b1', 'b2'] },
+      { name: 'Folgeseite', uuid: 'old2', blocks: ['b3'] },
+      { name: 'Licht', uuid: 'licht', blocks: ['b9'] },
+    ];
+    const virtuals = [{ name: plan.virtualInputs[0]!.name, uuid: 'vi-old' }];
+    const devices = plan.modbusDevices.map((d, i) => ({ name: d.name, uuid: `dev-old${i}` }));
+    const { cfg, calls } = fakeCfg(1, undefined, undefined, { pages, virtuals, devices });
+    const res = run(plan, cfg, {
+      replace: true,
+      previous: {
+        pages: ['old2', 'weg'],
+        periphery: ['vi-old', ...devices.map((d) => d.uuid), 'längst-gelöscht'],
+      },
+    });
+    expect(res.outcome).toBe('replaced');
+    expect(res.existingPages.map((p) => p.uuid)).toEqual(['old', 'old2']);
+    const removed = calls.filter(([m]) => m === 'remove_block').map(([, p]) => p['uuid']);
+    expect(removed).toEqual([
+      'vi-old',
+      ...devices.map((d) => d.uuid),
+      'b1',
+      'b2',
+      'old',
+      'b3',
+      'old2',
+    ]);
+    expect(res.removed).toBe(1 + devices.length + 3);
+    expect(pages.map((p) => p.uuid)).toEqual(['licht']);
+    // erst entfernen, dann anlegen
+    const order = calls.map(([m]) => m);
+    expect(order.lastIndexOf('remove_block')).toBeLessThan(order.indexOf('add_page'));
+  });
+
+  it('Objekte mit geplanten Namen, die nicht vom letzten Lauf stammen: Abbruch vor jeder Änderung', () => {
+    const plan = buildHandoverPlan(sample(), MODELS);
+    const virtuals = [{ name: plan.virtualInputs[0]!.name, uuid: 'vi-fremd' }];
+    const devices = [{ name: 'MB_LP03', uuid: 'dev-fremd' }];
+    const { cfg, calls } = fakeCfg(1, undefined, undefined, { virtuals, devices });
+    expect(() => run(plan, cfg, { replace: true })).toThrow(
+      `In Config gibt es schon Objekte mit diesen Namen: ${plan.virtualInputs[0]!.name}, MB_LP03.`,
+    );
+    const changing = [
+      'add_page',
+      'add_block',
+      'set_block_property',
+      'insert_object',
+      'remove_block',
+    ];
+    expect(calls.filter(([m]) => changing.includes(m))).toEqual([]);
   });
 });

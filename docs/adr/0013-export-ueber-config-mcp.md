@@ -53,7 +53,11 @@ Loxone Config bringt inzwischen einen eigenen MCP-Server mit, den „LOXONE Conf
    - Ergebnis anzeigen; mit `undo` lässt sich alles in einem Schritt zurücknehmen.
    - Gespeichert wird nur auf ausdrücklichen Klick (`save_project`).
 4. **Einlesen statt Dateiparser (MS7).** Ein bestehendes Projekt wird über `code_query` gelesen: Bausteine, Modbus-Geräte und Verbindungen. Der `.Loxone`-Parser, der byte-gleiche Roundtrip und die Golden-File-Tests je Config-Version entfallen.
-5. **Wiedererkennung.** Was LastPlan anlegt, trägt eine eigene Seite. Deren Kennung `lastplan:<projectId>:<structureHash>` steckt im Seitennamen oder einem Notiz-Baustein. Dadurch kann ein erneuter Lauf ersetzen statt duplizieren. TODO(verify): wo eine Kennung dauerhaft gespeichert werden kann.
+5. **Wiedererkennung.** Was LastPlan anlegt, trägt eine eigene Seite. Deren Kennung steht im Seitennamen, weil `get_pages` nur Name und UUID liefert: `[lastplan:<Projekt>:<Struktur>]`, mit den letzten 12 Zeichen der Projekt-ID (Zufallsteil der UUID v7) und den ersten 8 Zeichen des Struktur-Hashes. Umgesetzt in 6.6:
+   - Findet ein Lauf eine Seite mit der Kennung dieses Projekts, ändert er nichts und meldet sie. Der Nutzer entscheidet dann, ob sie ersetzt wird.
+   - Ersetzen entfernt mit `remove_block` zuerst die Peripherie des letzten Laufs (virtuelle Eingänge, Modbus-Geräte), dann jede Seite Baustein für Baustein und zuletzt die leere Seite (laut `sdk_describe` lässt sich nur eine leere Seite entfernen). Die UUIDs des letzten Laufs, auch Folgeseiten aus `arrange_page`, stehen im `ExportRecord`. Danach legt der Lauf neu an. Alles liegt in derselben Undo-Gruppe.
+   - Was in den Dialogen eingetragen war (Lasttabelle, Wallbox-Zuordnung), geht beim Ersetzen verloren. Die Oberfläche sagt das vor dem Ersetzen.
+   - Gibt es virtuelle Eingänge oder Modbus-Geräte mit geplanten Namen, die nicht aus dem letzten Lauf stammen, bricht der Lauf vor jeder Änderung ab, statt Doppelte anzulegen.
 
 ## Alternativen
 

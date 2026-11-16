@@ -164,6 +164,17 @@ export const ExportRecordSchema = z.object({
   /** Für die Erkennung von Strukturänderungen (Kap. 9). */
   structureHash: z.string().min(1),
   user: z.string().optional(),
+  /**
+   * Was die Übergabe in Config angelegt hat (UUIDs aus dem Config-Projekt, Umsetzungsplan 6.6):
+   * Seiten samt Folgeseiten und Objekte im Peripheriebaum. Ein späterer Lauf entfernt sie beim
+   * Ersetzen, sofern sie dort noch existieren.
+   */
+  config: z
+    .object({
+      pages: z.array(z.string().max(64)).max(100),
+      periphery: z.array(z.string().max(64)).max(10000),
+    })
+    .optional(),
 });
 export type ExportRecord = z.infer<typeof ExportRecordSchema>;
 
