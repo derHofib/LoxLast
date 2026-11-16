@@ -27,6 +27,14 @@ export type RegisterRole = (typeof REGISTER_ROLES)[number];
 
 export type RegisterType = 'uint16' | 'int16' | 'uint32' | 'int32' | 'float32';
 
+/**
+ * Byte-Reihenfolge bei Werten über mehrere Register (A = höchstwertiges Byte):
+ * big-endian = ABCD, word-swapped = CDAB, byte-swapped = BADC, little-endian = DCBA.
+ * Bei 16 Bit: big-endian/word-swapped = AB, byte-swapped/little-endian = BA.
+ */
+export const BYTE_ORDERS = ['big-endian', 'word-swapped', 'byte-swapped', 'little-endian'] as const;
+export type ByteOrder = (typeof BYTE_ORDERS)[number];
+
 export interface RegisterDef {
   address: Todoable<number>;
   /** Modbus-Funktionscode. */
@@ -36,6 +44,8 @@ export interface RegisterDef {
   access: Todoable<'r' | 'rw'>;
   unit: Todoable<string>;
   enum?: Todoable<Record<string, string>>;
+  /** Abweichende Byte-Reihenfolge nur für dieses Register; sonst gilt `modbus.byteOrder`. */
+  byteOrder?: ByteOrder;
   /** Quelle je Register, z. B. "Dokumentname, Version, Seite" oder "TODO". */
   source: string;
 }
@@ -62,7 +72,7 @@ export interface WallboxModel {
   modbus: {
     defaultPort: Todoable<number>;
     defaultUnitId: Todoable<number>;
-    byteOrder: Todoable<'big-endian' | 'little-endian' | 'word-swapped'>;
+    byteOrder: Todoable<ByteOrder>;
     registers: Partial<Record<RegisterRole, RegisterDef>> & Record<string, RegisterDef>;
     source: string;
   };

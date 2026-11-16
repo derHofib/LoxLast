@@ -40,7 +40,7 @@ describe('Ladepunkte-Ansicht', () => {
       'disabled',
       true,
     );
-    expect(screen.getByText('Benötigt das Gateway (Meilenstein 8)')).toBeTruthy();
+    expect(screen.getByText(/Benötigt das Gateway: unter Infos/)).toBeTruthy();
     expect(screen.getByRole('button', { name: 'CSV-Import' })).toHaveProperty('disabled', true);
   });
 
@@ -249,7 +249,7 @@ describe('Infos-Spalte', () => {
       p.chargePoints[0]!.libraryModelId = 'abl/em4-twin@1';
     });
     const info = screen.getByRole('complementary', { name: 'Infos' });
-    expect(within(info).getByText('Nicht verbunden – Gateway folgt')).toBeTruthy();
+    expect(within(info).getByText('Gateway nicht gekoppelt')).toBeTruthy();
     expect(within(info).getByText(/^unvollständig \(\d+ Angaben fehlen\)/)).toBeTruthy();
     expect(within(info).getAllByText('fehlt (TODO)').length).toBeGreaterThan(30);
     expect(

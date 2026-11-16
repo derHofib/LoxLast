@@ -23,6 +23,23 @@ export class MockModbusClient implements ModbusClient {
     });
   }
 
+  async readInputRegisters(
+    endpoint: ModbusEndpoint,
+    address: number,
+    count: number,
+  ): Promise<number[]> {
+    // Der Mock unterscheidet Holding- und Input-Register nicht.
+    return this.readHoldingRegisters(endpoint, address, count);
+  }
+
+  async writeMultipleRegisters(
+    endpoint: ModbusEndpoint,
+    address: number,
+    values: number[],
+  ): Promise<void> {
+    this.seed(endpoint, address, values);
+  }
+
   async writeSingleRegister(
     endpoint: ModbusEndpoint,
     address: number,

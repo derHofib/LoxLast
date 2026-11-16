@@ -14,15 +14,15 @@
 - **Änderungsprotokoll (Kap. 8.1/9):** append-only (DB-Trigger), Felder wer/wann/Aktion/Projekt/Ziel/vorher/nachher. „Wer“ ist ein Sitzungs-Pseudonym (`sitzung-<Hash>`), weil es keine Nutzerverwaltung gibt. Abfrage über `GET /api/projects/:id/changelog`.
 - **Mandantenfähigkeit (Kap. 12):** `tenant_id` (Standard `default`) in `credentials` und `changelog` vorgesehen, noch ungenutzt.
 - **Robustheit (Kap. 8.4):** Standard-Polling 2 s (`DEFAULT_POLL_INTERVAL_MS`) und Backoff-Funktion `backoffDelayMs` sind vorhanden; Polling-Schleifen, Timeouts und Rücklesen gegen echte Geräte folgen mit Hardware.
-- **Hardware-Clients:** `MiniserverClient` und `ModbusClient` sind nur Interfaces mit Mocks. Keine Register oder Miniserver-Adressen hinterlegt (ADR 0008).
+- **Hardware-Clients:** `MiniserverClient` ist nur Interface mit Mock (ADR 0008). `ModbusClient` hat seit 8.5 eine TCP-Implementierung; Register kommen nur aus der Wallbox-Bibliothek (ADR 0012).
 
 ## Stand gegenüber Kap. 8.2
 
-| Endpunkt                                                                                                                                        | Stand                                                                                                |
-| ----------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| `POST /api/auth/pair`, `GET /api/health`, `POST /api/miniserver`, `GET /api/miniserver/status`, `GET /api/projects/:id/changelog`               | umgesetzt                                                                                            |
-| `POST /api/devices/test`, `GET /api/projects/:id/live`, `POST /api/projects/:id/parameters`, `POST /api/projects/:id/changelog/:entryId/revert` | Schemas vorhanden; Route antwortet 501 `not_implemented` (braucht Test-Wallbox bzw. Test-Miniserver) |
-| `POST /api/auth/refresh`                                                                                                                        | Zusatz zur Spezifikation (Token erneuern, Kap. 12)                                                   |
+| Endpunkt                                                                                                                                                               | Stand                                                                                                |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `POST /api/auth/pair`, `GET /api/health`, `POST /api/miniserver`, `GET /api/miniserver/status`, `GET /api/projects/:id/changelog`, `POST /api/devices/test` (ADR 0012) | umgesetzt                                                                                            |
+| `GET /api/projects/:id/live`, `POST /api/projects/:id/parameters`, `POST /api/projects/:id/changelog/:entryId/revert`                                                  | Schemas vorhanden; Route antwortet 501 `not_implemented` (braucht Test-Wallbox bzw. Test-Miniserver) |
+| `POST /api/auth/refresh`                                                                                                                                               | Zusatz zur Spezifikation (Token erneuern, Kap. 12)                                                   |
 
 ## Annahmen (wo die Spezifikation nichts festlegt)
 
