@@ -21,7 +21,18 @@ export interface ConfigMcpClient {
   query(code: string, timeoutMs?: number): Promise<unknown>;
   /** Technische Dokumentation eines Bausteintyps (`get_doc` mit `type`), als Text. */
   getDoc(type: string): Promise<string>;
+  /** Änderndes Skript (`code_run`), genau ein Undo-Schritt. Liefert `value` des Skripts. */
+  run(code: string, timeoutMs?: number): Promise<unknown>;
+  /** Letzten Änderungsschritt in Config zurücknehmen (`undo`). */
+  undo(): Promise<UndoState>;
+  /** Projekt in Config unter seinem Pfad speichern (`save_project`). */
+  save(): Promise<void>;
   close(): Promise<void>;
+}
+
+export interface UndoState {
+  canUndo: boolean;
+  canRedo: boolean;
 }
 
 /** Fehler eines Skripts oder Werkzeugs, mit dem Fehlercode des Servers (z. B. `NO_DOCUMENT`). */
@@ -29,6 +40,8 @@ export class ConfigMcpError extends Error {
   constructor(
     readonly code: string,
     message: string,
+    /** Übrige Felder der Fehlerantwort, z. B. `canUndo` bei `undo`. */
+    readonly payload: Record<string, unknown> = {},
   ) {
     super(message);
     this.name = 'ConfigMcpError';
@@ -115,6 +128,35 @@ export function parseScriptResult(result: ToolResult): unknown {
   return p.value;
 }
 
+/**
+ * Antwort von `undo`/`save_project` auswerten. Laut Skill: `{ success, canUndo, canRedo }`, bei
+ * Ablehnung dieselben Felder im Fehler-Inhalt. TODO(verify): genaue Form am echten Server.
+ */
+export function parseToolObject(result: ToolResult): Record<string, unknown> {
+  let payload: unknown = result.structuredContent;
+  const text = firstText(result);
+  if (payload === undefined && text !== undefined) {
+    try {
+      payload = JSON.parse(text);
+    } catch {
+      payload = undefined;
+    }
+  }
+  const obj =
+    typeof payload === 'object' && payload !== null ? (payload as Record<string, unknown>) : {};
+  if (result.isError || obj['success'] === false) {
+    const code = typeof obj['error'] === 'string' ? obj['error'] : 'TOOL_ERROR';
+    const message = typeof obj['message'] === 'string' ? obj['message'] : (text ?? code);
+    throw new ConfigMcpError(code, message, obj);
+  }
+  return obj;
+}
+
+const undoState = (o: Record<string, unknown>): UndoState => ({
+  canUndo: o['canUndo'] === true,
+  canRedo: o['canRedo'] === true,
+});
+
 /** Client über das offizielle MCP-SDK (Streamable HTTP). Verbindet beim ersten Aufruf. */
 export function createConfigMcpClient(url: URL, clientVersion: string): ConfigMcpClient {
   let connected: Promise<Client> | undefined;
@@ -174,6 +216,17 @@ export function createConfigMcpClient(url: URL, clientVersion: string): ConfigMc
         throw new ConfigMcpError('BAD_RESPONSE', texts[0] ?? 'get_doc lieferte keinen Text.');
       }
       return texts.join('\n\n');
+    },
+    async run(code, timeoutMs) {
+      const args: Record<string, unknown> = { code };
+      if (timeoutMs !== undefined) args['timeout_ms'] = timeoutMs;
+      return parseScriptResult(await call('code_run', args));
+    },
+    async undo() {
+      return undoState(parseToolObject(await call('undo', {})));
+    },
+    async save() {
+      parseToolObject(await call('save_project', {}));
     },
     async close() {
       const pending = connected;

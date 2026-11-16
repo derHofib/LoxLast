@@ -5,6 +5,10 @@ export const ChangelogActionSchema = z.enum([
   'pairing.success',
   'token.refresh',
   'miniserver.configure',
+  // Übergabe an Loxone Config (Plan 6.5):
+  'config.handover',
+  'config.undo',
+  'config.save',
   // Reserviert für Meilenstein 9:
   'parameter.write',
   'parameter.revert',

@@ -15,6 +15,11 @@ export interface FakeConfigMcpOptions {
   onQuery?: (code: string) => { value: unknown } | { error: string; message: string };
   /** Antwort von `get_doc` je Typ; fehlt der Typ, antwortet der Fake mit einem Werkzeugfehler. */
   docs?: Record<string, string>;
+  /** Antwort von `code_run`; ohne Angabe `{ value: null }`. */
+  onRun?: (code: string) => { value: unknown } | { error: string; message: string };
+  /** Antwort von `undo` bzw. `save_project` als JSON-Objekt; `isError`, wenn `success: false`. */
+  onUndo?: () => Record<string, unknown>;
+  onSave?: () => Record<string, unknown>;
 }
 
 /** Auszug aus `sdk_describe` (Form wie geliefert: Methoden als `name(p: …): Result;`). */
@@ -34,17 +39,31 @@ export const FAKE_DECLARATIONS = `declare const cfg: {
   add_object_ref(p: { source_uuid: string; page_uuid: string }): BlockMutationResult;
   set_block_property(p: { uuid: string; property_id: number | string; value: unknown }): SetBlockPropertyResult;
   connect_blocks(p: { from_block_uuid: string; from_connector_key: string; to_block_uuid: string; to_connector_key: string }): ConnectionResult;
+  arrange_page(p: { page_uuid: string }): ArrangePageResult;
   validate_project(): ValidateResult;
 };`;
 
 export interface FakeConfigMcp {
   url: URL;
   queries: string[];
+  runs: string[];
+  /** Aufrufe von `undo` und `save_project`, in Reihenfolge. */
+  lifecycle: string[];
   stop(): Promise<void>;
 }
 
 export async function startFakeConfigMcp(opts: FakeConfigMcpOptions = {}): Promise<FakeConfigMcp> {
   const queries: string[] = [];
+  const runs: string[] = [];
+  const lifecycle: string[] = [];
+  const scriptPayload = (r: { value: unknown } | { error: string; message: string }) =>
+    'error' in r
+      ? { success: false, error: r.error, message: r.message, logs: [] }
+      : { value: r.value, logs: [] };
+  const objectReply = (o: Record<string, unknown>) => ({
+    content: [{ type: 'text' as const, text: JSON.stringify(o) }],
+    ...(o['success'] === false ? { isError: true } : {}),
+  });
   const build = (): McpServer => {
     const server = new McpServer({ name: 'loxone-config', version: 'fake' });
     server.registerTool('sdk_describe', { inputSchema: { method: z.string().optional() } }, () => ({
@@ -73,6 +92,23 @@ export async function startFakeConfigMcp(opts: FakeConfigMcpOptions = {}): Promi
           : { content: [{ type: 'text', text: doc }] };
       },
     );
+    server.registerTool(
+      'code_run',
+      { inputSchema: { code: z.string(), timeout_ms: z.number().int().optional() } },
+      ({ code }) => {
+        runs.push(code);
+        const payload = scriptPayload(opts.onRun?.(code) ?? { value: null });
+        return { content: [{ type: 'text', text: JSON.stringify(payload) }] };
+      },
+    );
+    server.registerTool('undo', {}, () => {
+      lifecycle.push('undo');
+      return objectReply(opts.onUndo?.() ?? { success: true, canUndo: false, canRedo: true });
+    });
+    server.registerTool('save_project', { inputSchema: { path: z.string().optional() } }, () => {
+      lifecycle.push('save_project');
+      return objectReply(opts.onSave?.() ?? { success: true });
+    });
     return server;
   };
 
@@ -99,6 +135,8 @@ export async function startFakeConfigMcp(opts: FakeConfigMcpOptions = {}): Promi
   return {
     url: new URL(`http://127.0.0.1:${port}/mcp`),
     queries,
+    runs,
+    lifecycle,
     stop: () =>
       new Promise<void>((resolve) => {
         http.closeAllConnections();

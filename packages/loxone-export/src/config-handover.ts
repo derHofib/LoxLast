@@ -435,8 +435,47 @@ function emptyPlan(project: Project, blockers: string[]): HandoverPlan {
  * (Miniserver, Modbusserver), wird vor der ersten Änderung geprüft. Gibt die angelegten UUIDs
  * je Plan-Schlüssel zurück.
  */
-export function renderHandoverScript(plan: HandoverPlan): string {
-  if (plan.blockers.length > 0) {
+/** Was das Skript braucht; das Gateway erhält genau diese Felder (protocol: ConfigHandoverPlan). */
+export interface HandoverScriptInput {
+  pageName: string;
+  loadManagers: ReadonlyArray<
+    Pick<PlannedLoadManager, 'key' | 'title' | 'maxKw'> & { parent?: PlannedLoadManager['parent'] }
+  >;
+  wallboxManagers: ReadonlyArray<Pick<PlannedWallboxManager, 'key' | 'title' | 'parent'>>;
+  wallboxes: ReadonlyArray<Pick<PlannedWallbox, 'key' | 'title' | 'maxKw' | 'minKw'>>;
+  virtualInputs: ReadonlyArray<Pick<PlannedVirtualInput, 'key' | 'name' | 'target'>>;
+  modbusDevices: ReadonlyArray<
+    Omit<PlannedModbusDevice, 'registers'> & {
+      registers: ReadonlyArray<
+        Omit<PlannedModbusDevice['registers'][number], 'role' | 'properties'> & {
+          role: string;
+          properties: Readonly<Record<string, number | boolean | string>>;
+        }
+      >;
+    }
+  >;
+  blockers?: readonly string[];
+}
+
+/** Nur die Felder, die das Gateway zum Ausführen braucht (ohne Anzeige-Angaben). */
+export function handoverScriptInput(plan: HandoverPlan): HandoverScriptInput {
+  return {
+    pageName: plan.pageName,
+    loadManagers: plan.loadManagers.map(({ key, title, maxKw, parent }) => ({
+      key,
+      title,
+      maxKw,
+      ...(parent ? { parent } : {}),
+    })),
+    wallboxManagers: plan.wallboxManagers.map(({ key, title, parent }) => ({ key, title, parent })),
+    wallboxes: plan.wallboxes.map(({ key, title, maxKw, minKw }) => ({ key, title, maxKw, minKw })),
+    virtualInputs: plan.virtualInputs.map(({ key, name, target }) => ({ key, name, target })),
+    modbusDevices: plan.modbusDevices,
+  };
+}
+
+export function renderHandoverScript(plan: HandoverScriptInput): string {
+  if (plan.blockers && plan.blockers.length > 0) {
     throw new Error(`Übergabe gesperrt: ${plan.blockers.join(' ')}`);
   }
   const data = {

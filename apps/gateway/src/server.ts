@@ -4,6 +4,7 @@ import rateLimit from '@fastify/rate-limit';
 import websocket from '@fastify/websocket';
 import {
   ChangelogQuerySchema,
+  ConfigHandoverRequestSchema,
   ClientMessageSchema,
   DeviceTestRequestSchema,
   MiniserverConfigRequestSchema,
@@ -13,7 +14,10 @@ import {
   WS_PATH,
   type ChangelogResponse,
   type ConfigDiscoveryResponse,
+  type ConfigHandoverResponse,
   type ConfigMcpStatusResponse,
+  type ConfigSaveResponse,
+  type ConfigUndoResponse,
   type ErrorCode,
   type ErrorResponse,
   type HealthResponse,
@@ -30,6 +34,7 @@ import { runDeviceTest } from './device-test';
 import type { ConfigMcpClient } from './config-mcp/client';
 import { checkConfigMcp } from './config-mcp/status';
 import { runConfigDiscovery } from './config-mcp/discovery';
+import { runConfigHandover, saveConfig, undoConfig } from './config-mcp/handover';
 import type { ModelLibrary } from './library';
 import type { CredentialStore } from './credential-store';
 import type { IssuedToken, PairingService } from './pairing';
@@ -309,7 +314,7 @@ export async function buildServer(deps: ServerDeps): Promise<FastifyInstance> {
   } else {
     app.post('/api/devices/test', { preHandler: requireAuth }, notImplemented);
   }
-  // Übergabe an Config (ADR 0013): vorerst nur lesende Verbindungsprüfung.
+  // Übergabe an Config (ADR 0013): Verbindungsprüfung, Erkundung, Übergabe, Rückgängig, Speichern.
   const configMcp = deps.configMcp;
   if (configMcp) app.addHook('onClose', async () => configMcp.close());
   app.get(
@@ -328,6 +333,74 @@ export async function buildServer(deps: ServerDeps): Promise<FastifyInstance> {
       config: { rateLimit: { max: 6, timeWindow: '1 minute' } },
     },
     async (): Promise<ConfigDiscoveryResponse> => runConfigDiscovery(configMcp),
+  );
+  // Übergabe (Plan 6.5): Plan prüfen, Skript im Gateway erzeugen, mit code_run ausführen.
+  app.post(
+    '/api/config/handover',
+    {
+      preHandler: requireAuth,
+      bodyLimit: 4 * 1024 * 1024,
+      config: { rateLimit: { max: 6, timeWindow: '1 minute' } },
+    },
+    async (req, reply) => {
+      const body = ConfigHandoverRequestSchema.safeParse(req.body);
+      if (!body.success) {
+        const issue = body.error.issues[0];
+        return reply
+          .code(400)
+          .send(
+            err(
+              'invalid_request',
+              `Übergabeplan ungültig${issue ? ` (${issue.path.join('.')}: ${issue.message})` : ''}.`,
+            ),
+          );
+      }
+      const res: ConfigHandoverResponse = await runConfigHandover(configMcp, body.data.plan);
+      if (res.result || res.failure) {
+        deps.changelog.record({
+          action: 'config.handover',
+          actor: actor(req),
+          target: 'loxone-config',
+          after: {
+            created: res.result ? Object.keys(res.result.created).length : 0,
+            valid: res.result?.validation.valid ?? null,
+            failure: res.failure?.code ?? null,
+          },
+        });
+      }
+      return res;
+    },
+  );
+  app.post(
+    '/api/config/undo',
+    { preHandler: requireAuth, config: { rateLimit: { max: 30, timeWindow: '1 minute' } } },
+    async (req): Promise<ConfigUndoResponse> => {
+      const res = await undoConfig(configMcp);
+      if (res.success) {
+        deps.changelog.record({
+          action: 'config.undo',
+          actor: actor(req),
+          target: 'loxone-config',
+          after: { canUndo: res.canUndo },
+        });
+      }
+      return res;
+    },
+  );
+  app.post(
+    '/api/config/save',
+    { preHandler: requireAuth, config: { rateLimit: { max: 10, timeWindow: '1 minute' } } },
+    async (req): Promise<ConfigSaveResponse> => {
+      const res = await saveConfig(configMcp);
+      if (res.saved) {
+        deps.changelog.record({
+          action: 'config.save',
+          actor: actor(req),
+          target: 'loxone-config',
+        });
+      }
+      return res;
+    },
   );
   app.get('/api/projects/:id/live', { preHandler: requireAuth }, notImplemented);
   app.post('/api/projects/:id/parameters', { preHandler: requireAuth }, notImplemented);

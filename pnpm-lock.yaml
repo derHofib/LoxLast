@@ -59,6 +59,9 @@ importers:
       '@fastify/websocket':
         specifier: ^11.3.7
         version: 11.3.7
+      '@lastplan/loxone-export':
+        specifier: workspace:*
+        version: link:../../packages/loxone-export
       '@lastplan/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol

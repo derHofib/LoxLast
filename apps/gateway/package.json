@@ -14,6 +14,7 @@
     "@fastify/cors": "^11.4.3",
     "@fastify/rate-limit": "^11.2.2",
     "@fastify/websocket": "^11.3.7",
+    "@lastplan/loxone-export": "workspace:*",
     "@lastplan/protocol": "workspace:*",
     "@lastplan/wallbox-library": "workspace:*",
     "@modelcontextprotocol/sdk": "^1.32.2",
