@@ -1,0 +1,157 @@
+/* CSV-Import-Dialog (Kap. 11.2). Nur Design-Tokens, keine Verläufe. */
+.csv-import {
+  width: min(1100px, calc(100vw - 32px));
+  max-height: calc(100vh - 32px);
+  padding: 0;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-card);
+  background: var(--color-surface);
+  color: var(--color-text);
+  overflow: auto;
+}
+.csv-import::backdrop {
+  background: rgb(0 0 0 / 40%);
+}
+.csv-import__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-6);
+  border-bottom: 1px solid var(--color-border);
+}
+.csv-import__title {
+  margin: 0;
+  font-size: var(--fs-xl);
+  font-weight: var(--fw-bold);
+}
+.csv-import__steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-6);
+  margin: 0;
+  padding: var(--space-3) var(--space-6);
+  list-style: none;
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+  font-size: var(--fs-md);
+}
+.csv-import__steps .is-current {
+  color: var(--color-text);
+  font-weight: var(--fw-semibold);
+}
+.csv-import__step-no {
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-pill);
+  font-variant-numeric: tabular-nums;
+}
+.csv-import__steps .is-current .csv-import__step-no {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: var(--color-text-on-accent);
+}
+.csv-import__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-5) var(--space-6) var(--space-6);
+}
+.csv-import__intro,
+.csv-import__summary {
+  margin: 0;
+}
+.csv-import__drop {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-6);
+  border: 2px dashed var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-sub);
+}
+.csv-import__drop.is-over {
+  border-color: var(--color-accent);
+}
+.csv-import__drop-label {
+  font-weight: var(--fw-semibold);
+}
+.csv-import__drop input[type='file'] {
+  min-height: var(--control-height);
+}
+.csv-import__hint {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--fs-sm);
+}
+.csv-import__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+.csv-import__spacer {
+  flex: 1;
+}
+.csv-import__mapping {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: var(--space-4);
+}
+.csv-import__issues {
+  margin: 0;
+  padding-left: var(--space-5);
+}
+.csv-import__issues .is-error {
+  color: var(--color-error-text);
+}
+.csv-import__issues .is-warning {
+  color: var(--color-warning-text);
+}
+.csv-import__filter {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 44px;
+}
+.csv-import__filter input {
+  width: 20px;
+  height: 20px;
+}
+.csv-import__table-wrap {
+  max-height: 50vh;
+  overflow: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+.csv-import__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-md);
+}
+.csv-import__table th,
+.csv-import__table td {
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+  text-align: left;
+  vertical-align: top;
+}
+.csv-import__table th {
+  position: sticky;
+  top: 0;
+  background: var(--color-surface-muted);
+  font-weight: var(--fw-semibold);
+}
+.csv-import__table .num {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.csv-import__table tr.is-error {
+  background: var(--color-error-bg);
+}
+.csv-import__table tr.is-warning {
+  background: var(--color-warning-bg);
+}
