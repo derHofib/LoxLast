@@ -31,3 +31,35 @@ describe('Tastaturkürzel', () => {
     expect(s().project?.name).toBe('B');
   });
 });
+
+describe('Löschen und Duplizieren per Tastatur', () => {
+  it('Entf löscht die Auswahl, Strg+D dupliziert und wählt die Kopie', async () => {
+    const { sampleProject } = await import('../test-fixtures');
+    const { useEditorStore } = await import('./editorStore');
+    const s = () => useProjectStore.getState();
+    s().open(sampleProject());
+    render(<Host />);
+    const lp01 = s().project!.chargePoints[0]!;
+
+    useEditorStore.getState().select(['site']);
+    fireEvent.keyDown(document.body, { key: 'Delete' });
+    expect(s().project!.chargePoints).toHaveLength(3); // Netzanschluss nicht löschbar
+
+    useEditorStore.getState().select([lp01.id]);
+    fireEvent.keyDown(document.body, { key: 'd', ctrlKey: true });
+    expect(s().project!.chargePoints).toHaveLength(4);
+    const copyId = useEditorStore.getState().selectedIds[0];
+    expect(s().project!.chargePoints.find((c) => c.id === copyId)?.label).toBe('LP04');
+
+    fireEvent.keyDown(document.body, { key: 'Delete' });
+    expect(s().project!.chargePoints).toHaveLength(3);
+    fireEvent.keyDown(document.body, { key: 'z', ctrlKey: true });
+    expect(s().project!.chargePoints).toHaveLength(4);
+
+    useEditorStore.getState().select([]);
+    fireEvent.keyDown(document.body, { key: 'd', ctrlKey: true });
+    fireEvent.keyDown(document.body, { key: 'Backspace' });
+    expect(s().project!.chargePoints).toHaveLength(4);
+    fireEvent.keyDown(document.body, { key: 'x' });
+  });
+});
