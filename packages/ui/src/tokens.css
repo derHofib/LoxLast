@@ -54,29 +54,29 @@
   --shadow-block: 0 1px 2px rgba(38,37,36,.06);
 }
 
-/* Dark Mode vorbereitet, Umsetzung in Meilenstein 10. */
+/* Dark Mode (Meilenstein 10.1). */
 
 :root[data-theme="dark"] {
-  --color-bg: #F4F3F1;
-  --color-surface: #FFFFFF;
-  --color-surface-sub: #FAF9F7;
-  --color-surface-muted: #F4F3F1;
-  --color-border: #E3E0DB;
-  --color-border-strong: #D6D2CC;
-  --color-border-block: #CFCAC3;
-  --color-text: #262524;
-  --color-text-muted: #5E5A54;
+  --color-bg: #171716;
+  --color-surface: #212120;
+  --color-surface-sub: #1B1B1A;
+  --color-surface-muted: #2A2927;
+  --color-border: #3A3835;
+  --color-border-strong: #4A4743;
+  --color-border-block: #55514C;
+  --color-text: #ECEAE6;
+  --color-text-muted: #AAA59D;
   --color-text-on-accent: #1C1B1A;
   --color-accent: #6DBE45;
-  --color-track: #E8E5E0;
-  --color-error: #C2410C;
-  --color-error-text: #9A3412;
-  --color-error-bg: #FDF4EF;
-  --color-error-border: #F0C9B4;
-  --color-warning: #B7791F;
-  --color-warning-text: #7A5200;
-  --color-warning-bg: #FBF5E6;
-  --color-io-input: #2F6FB0;
-  --color-io-output: #4E9A2A;
-  --color-io-param: #8A847C;
+  --color-track: #34322F;
+  --color-error: #E8793F;
+  --color-error-text: #F4A57B;
+  --color-error-bg: #3A2218;
+  --color-error-border: #7A3A1E;
+  --color-warning: #D9A441;
+  --color-warning-text: #E8C068;
+  --color-warning-bg: #33290F;
+  --color-io-input: #6FA8E0;
+  --color-io-output: #7CC156;
+  --color-io-param: #A39D94;
 }

@@ -8,6 +8,10 @@ import '@lastplan/ui/tokens.css';
 import '@lastplan/ui/ui.css';
 import './global.css';
 import { App } from './App';
+import { applyTheme, readThemeChoice } from './theme/theme';
+
+// Gewähltes Farbschema vor dem ersten Rendern setzen (kein Aufblitzen des hellen Designs).
+applyTheme(readThemeChoice());
 
 const root = document.getElementById('root');
 if (!root) throw new Error('Element #root fehlt in index.html');

@@ -39,10 +39,33 @@ export type ColorToken = keyof typeof colorTokens;
 export type ColorTokenSet = Record<ColorToken, string>;
 
 /**
- * Dark Mode: Struktur vorbereitet, Werte folgen in Meilenstein 10.
- * Bis dahin identisch mit dem hellen Set, damit `data-theme="dark"` nichts kaputt macht.
+ * Dark Mode (Meilenstein 10.1): warmes Dunkelgrau passend zur hellen Palette, gleiches Grün als
+ * Akzent (nur Flächen/Linien, nie Text). Kontraste WCAG 2.2 AA – geprüft in tokens.test.ts.
  */
-export const darkColorTokens: ColorTokenSet = { ...colorTokens };
+export const darkColorTokens: ColorTokenSet = {
+  bg: '#171716',
+  surface: '#212120',
+  'surface-sub': '#1B1B1A',
+  'surface-muted': '#2A2927',
+  border: '#3A3835',
+  'border-strong': '#4A4743',
+  'border-block': '#55514C',
+  text: '#ECEAE6',
+  'text-muted': '#AAA59D',
+  'text-on-accent': '#1C1B1A',
+  accent: '#6DBE45',
+  track: '#34322F',
+  error: '#E8793F',
+  'error-text': '#F4A57B',
+  'error-bg': '#3A2218',
+  'error-border': '#7A3A1E',
+  warning: '#D9A441',
+  'warning-text': '#E8C068',
+  'warning-bg': '#33290F',
+  'io-input': '#6FA8E0',
+  'io-output': '#7CC156',
+  'io-param': '#A39D94',
+};
 
 export const typography = {
   'font-sans': "'Source Sans 3', system-ui, sans-serif",
@@ -109,7 +132,7 @@ export function renderTokensCss(): string {
       ...Object.entries(spacing),
       ...Object.entries(sizes),
     ]),
-    '/* Dark Mode vorbereitet, Umsetzung in Meilenstein 10. */\n',
+    '/* Dark Mode (Meilenstein 10.1). */\n',
     block(':root[data-theme="dark"]', colorEntries(darkColorTokens)),
   ].join('\n');
 }
