@@ -68,6 +68,11 @@ export const LOXONE_CONNECTORS = {
   wallboxManagerPmax: 'Pmax',
   /** Lebender Ausgang einer platzierten Instanz eines virtuellen Eingangs oder Sensors. */
   virtualInputRefOut: 'AQ',
+  /**
+   * Eingang Ec (Ladefreigabe) der Wallbox, Schlüssel `allow` (Erkundung 3, 2026-11-16). Laut
+   * `get_doc` (Wallbox): invertiert und nicht verbunden = Laden erlaubt.
+   */
+  wallboxEnable: 'allow',
 } as const;
 
 /** Ein Lastmanager hat 12 Lasten (`AQl1`–`AQl12`). */
@@ -470,9 +475,9 @@ export function buildHandoverPlan(
       ? [
           {
             block: 'wallbox-enable',
-            title: 'Ladefreigabe (Ec)',
+            title: 'Ladefreigabe (Ec), nur bei Bedarf',
             items: [
-              'Eingang Ec (Ladefreigabe) je Wallbox verbinden, z. B. mit Freigabe per App, Schalter oder Konstante 1 (die Quelle ist anlagenspezifisch):',
+              'LastPlan hat Ec bei jeder Wallbox invertiert und offen gelassen, damit ist Laden immer erlaubt. Wer eine Freigabe per App, Schalter o. Ä. will, verbindet Ec und nimmt die Invertierung zurück:',
               ...wallboxes.map((w) => w.title),
             ],
           },
@@ -480,7 +485,9 @@ export function buildHandoverPlan(
       : []),
   ];
 
-  const pending = ['Freigabe (Ec) und Status der Wallbox werden noch nicht an Modbus angebunden.'];
+  const pending = [
+    'Status der Wallbox (z. B. Fahrzeug verbunden) wird noch nicht an Modbus angebunden.',
+  ];
   const modbusDevices: PlannedModbusDevice[] = [];
   const wallboxKeys = new Map(wallboxes.map((w) => [w.key, w]));
   for (const cp of project.chargePoints) {
@@ -544,7 +551,8 @@ function emptyPlan(project: Project, blockers: string[]): HandoverPlan {
  * Skript für `code_run` (ein Undo-Schritt). Daten gehen als JSON-Literal hinein, nie als
  * zusammengesetzter Code. Verwendete `cfg`-Methoden laut `sdk_describe`: get_tree, get_pages,
  * get_page, get_insertable_types, get_block_properties, get_block, add_page, add_block,
- * set_block_property, insert_object, add_object_ref, connect_blocks, remove_block, arrange_page,
+ * set_block_property, set_connector_inverted, insert_object, add_object_ref, connect_blocks,
+ * remove_block, arrange_page,
  * validate_project. Alles, was fehlen kann (Miniserver, Modbusserver), und alles, was doppelt
  * entstehen würde, wird vor der ersten Änderung geprüft.
  *
@@ -643,6 +651,7 @@ export function renderHandoverScript(plan: HandoverScriptInput): string {
     props: LOXONE_PROPERTIES,
     modeOverload: LOAD_MANAGER_MODE_OVERLOAD,
     conn: {
+      enable: LOXONE_CONNECTORS.wallboxEnable,
       maxP: LOXONE_CONNECTORS.loadManagerMaxP,
       pmax: LOXONE_CONNECTORS.wallboxManagerPmax,
       viOut: LOXONE_CONNECTORS.virtualInputRefOut,
@@ -850,6 +859,8 @@ for (const w of plan.wallboxes) {
   created[w.key] = id;
   cfg.set_block_property({ uuid: id, property_id: plan.props.wallboxMaxKw, value: w.maxKw });
   cfg.set_block_property({ uuid: id, property_id: plan.props.wallboxMinKw, value: w.minKw });
+  // Ladefreigabe: invertiert und offen = Laden erlaubt (get_doc Wallbox).
+  cfg.set_connector_inverted({ block_uuid: id, connector_key: plan.conn.enable, inverted: true });
 }
 
 for (const l of plan.loadManagers) {

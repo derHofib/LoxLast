@@ -55,7 +55,12 @@ erfinden“ und „nur offizielle Schnittstellen“, und ein Undo in Config gibt
 
 **Ec in allen Optionen:** Ec wird nicht offen gelassen. Lässt sich die Invertierung eines
 Eingangs per SDK setzen, wird invertiert, sonst wird eine Konstante 1 angelegt (`Constant`,
-einfügbar laut `get_insertable_types`). Beides ist `TODO(verify)` im nächsten Testlauf.
+einfügbar laut `get_insertable_types`).
+
+**Nachtrag 2026-11-16:** Das SDK hat `set_connector_inverted` (laut `sdk_describe`), der Schlüssel
+von Ec ist `allow` (Erkundung 3). Die Übergabe invertiert Ec deshalb bei jeder Wallbox. Die
+Abhak-Liste nennt Ec nur noch für den Fall, dass eine Freigabe per App oder Schalter gewünscht
+ist. Ob Config die Invertierung so anzeigt, wird im nächsten Testlauf geprüft.
 
 ## Entscheidung
 
