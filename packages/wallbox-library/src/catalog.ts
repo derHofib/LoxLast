@@ -1,4 +1,5 @@
-import type { LoadedModel, LibraryCheck } from './loader';
+import type { LibraryCheck } from './loader';
+import type { ModelCheck } from './validate';
 
 /**
  * Adapter für die Prüfregeln in packages/core (ModelCatalog).
@@ -37,7 +38,7 @@ function known<T>(value: T | string): T | null {
  * Baut den Katalog aus geprüften Modellen. Ungültige Modelle fehlen im Katalog,
  * unvollständige sind enthalten und als unvollständig markiert.
  */
-export function toModelCatalog(input: LibraryCheck | LoadedModel[]): ModelCatalog {
+export function toModelCatalog(input: LibraryCheck | ModelCheck[]): ModelCatalog {
   const models = Array.isArray(input) ? input : input.models;
   const entries = new Map<string, CatalogModel>();
   for (const loaded of models) {

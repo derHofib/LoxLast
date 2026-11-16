@@ -1,0 +1,54 @@
+name: Wallbox-Bibliothek veröffentlichen
+
+# Veröffentlicht packages/wallbox-library/dist-bundle (library.json, index.json) auf GitHub Pages.
+# Die App lädt das Paket von dort (ADR 0002). Nur main wird veröffentlicht, nicht beliebige Branches.
+#
+# EINMALIG in den Repo-Einstellungen: Settings → Pages → „Build and deployment“ → Source auf
+# „GitHub Actions“ stellen. Ohne diese Einstellung schlägt der Deploy-Schritt fehl.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'packages/wallbox-library/**'
+      - '.github/workflows/library-publish.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Ein Veröffentlichungslauf nach dem anderen; laufende Deploys werden nicht abgebrochen.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Bibliothekspaket bauen und prüfen
+        run: pnpm --filter @lastplan/wallbox-library bundle
+        env:
+          GITHUB_SHA: ${{ github.sha }}
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: packages/wallbox-library/dist-bundle
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
