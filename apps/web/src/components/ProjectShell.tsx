@@ -1,10 +1,9 @@
 import { Card, Notice, Tabs, TextField } from '@lastplan/ui';
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
 import { useProjectStore } from '../state/projectStore';
 import { repository } from '../storage/db';
 import { command } from '../state/history';
-import { StructureView } from '../features/structure/StructureView';
 
 export const PROJECT_TABS = [
   { id: 'struktur', label: 'Struktur' },
@@ -18,6 +17,11 @@ const PLACEHOLDER: Record<string, string> = {
   export: 'Loxone-Export folgt in Meilenstein 6.',
   live: 'Live-Werte folgen in Meilenstein 8 (benötigt das Gateway).',
 };
+
+/** Struktur-Ansicht (React Flow + elkjs) erst beim Öffnen laden, das hält die Startseite klein. */
+const StructureView = lazy(() =>
+  import('../features/structure/StructureView').then((m) => ({ default: m.StructureView })),
+);
 
 /** Rahmen eines geöffneten Projekts: lädt es aus IndexedDB, zeigt Tabs und Inhalt. */
 export function ProjectShell() {
@@ -106,7 +110,13 @@ export function ProjectShell() {
               />
             </Card>
           ) : null}
-          {tab === 'struktur' ? <StructureView /> : <Card>{PLACEHOLDER[tab]}</Card>}
+          {tab === 'struktur' ? (
+            <Suspense fallback={<Card>Struktur-Ansicht lädt …</Card>}>
+              <StructureView />
+            </Suspense>
+          ) : (
+            <Card>{PLACEHOLDER[tab]}</Card>
+          )}
         </div>
       </Tabs>
     </main>

@@ -263,6 +263,7 @@ function ChargePointInfo({ project, id }: { project: Project; id: string }) {
         </dl>
         <p>
           <Link
+            className="lp-btn lp-btn--text"
             to={`/projekt/${project.id}/ladepunkte`}
             onClick={() => useEditorStore.getState().select([id])}
           >
