@@ -231,6 +231,14 @@ function fakeCfg(
   { msType = 'MiniserverGen2', virtualAt = 'vin0' }: { msType?: string; virtualAt?: string } = {},
 ) {
   const calls: Array<[string, Record<string, unknown>]> = [];
+  const dataTypes = new Map<string, number>();
+  const ioProps = (uuid: string) => {
+    const is32 = (dataTypes.get(uuid) ?? 0) >= 2;
+    return [
+      { id: 1310, name: '16-Bit Register', editable: is32, value: is32 },
+      { id: 1311, name: 'Wortreihenfolge', editable: is32, value: false },
+    ];
+  };
   let u = 0;
   const next = () => `u${++u}`;
   const rec =
@@ -274,9 +282,12 @@ function fakeCfg(
     get_insertable_types: rec('get_insertable_types', (p) => ({
       types: p['parent_uuid'] === virtualAt ? [{ type: 'VirtualIn' }] : [{ type: 'Other' }],
     })),
-    get_block_properties: rec('get_block_properties', (p) => ({
-      properties: [{ id: 1000, value: servers[Number(String(p['uuid']).slice(3))] }],
-    })),
+    get_block_properties: rec('get_block_properties', (p) => {
+      const uuid = String(p['uuid']);
+      if (uuid.startsWith('srv'))
+        return { properties: [{ id: 1000, value: servers[Number(uuid.slice(3))] }] };
+      return { properties: ioProps(uuid) };
+    }),
     get_block: rec('get_block', () => ({
       block: {
         connectors: { inputs: [...actorInputs, { key: 'X', dataType: 'analog', hidden: true }] },
@@ -288,7 +299,16 @@ function fakeCfg(
       if (!p['page_uuid']) throw new Error("Missing 'pageUuid' parameter");
       return { block: { uuid: next() }, success: true };
     }),
-    set_block_property: rec('set_block_property'),
+    set_block_property: rec('set_block_property', (p) => {
+      const uuid = String(p['uuid']);
+      const id = Number(p['property_id']);
+      // wie Config: 16-Bit Register / Wortreihenfolge nur bei 32-Bit-Datentyp änderbar
+      if (ioProps(uuid).find((x) => x.id === id)?.editable === false) {
+        throw new Error(`Property is read-only: ${id}`);
+      }
+      if (id === 1309) dataTypes.set(uuid, Number(p['value']));
+      return { success: true };
+    }),
     connect_blocks: rec('connect_blocks'),
     insert_object: rec('insert_object', () => ({ object: { uuid: next() }, success: true })),
     add_object_ref: rec('add_object_ref', () => ({ block: { uuid: next() }, success: true })),
@@ -504,6 +524,35 @@ describe('renderHandoverScript', () => {
     expect(() => run(plan, twice.cfg)).toThrow(/mehrfach/);
     const unclear = fakeCfg(1, undefined, []);
     expect(() => run(plan, unclear.cfg)).toThrow(/nicht eindeutig/);
+  });
+
+  it('Modbus: Datentyp zuerst, schreibgeschützte Kästchen werden übersprungen, wenn sie passen', () => {
+    const plan = buildHandoverPlan(sample(), MODELS);
+    const { cfg, calls } = fakeCfg();
+    run(plan, cfg);
+    const sets = calls.filter(([m]) => m === 'set_block_property').map(([, p]) => p);
+    // je IO-Objekt kommt der Datentyp vor allen anderen Eigenschaften
+    const byUuid = new Map<unknown, number[]>();
+    for (const p of sets)
+      byUuid.set(p['uuid'], [...(byUuid.get(p['uuid']) ?? []), Number(p['property_id'])]);
+    const ios = [...byUuid.values()].filter((ids) => ids.includes(1309));
+    expect(ios.length).toBeGreaterThan(0);
+    expect(ios.every((ids) => ids[0] === 1309)).toBe(true);
+    // 16-Bit-Aktor: 1310/1311 nicht geschrieben
+    expect(ios.some((ids) => !ids.includes(1310) && !ids.includes(1311))).toBe(true);
+  });
+
+  it('Modbus: schreibgeschützte Eigenschaft mit falschem Wert bricht mit Namen ab', () => {
+    const plan = buildHandoverPlan(sample(), MODELS);
+    const { cfg } = fakeCfg();
+    const original = cfg.get_block_properties;
+    cfg.get_block_properties = (p: Record<string, unknown> = {}) =>
+      String(p['uuid']).startsWith('srv')
+        ? original(p)
+        : { properties: [{ id: 1312, name: 'Byte-Reihenfolge', editable: false, value: true }] };
+    expect(() => run(plan, cfg)).toThrow(
+      'Eigenschaft 1312 (Byte-Reihenfolge) ist in Config schreibgeschützt und steht auf true, gebraucht wird false.',
+    );
   });
 
   it('Modbus: leerer Modbusserver bekommt die fehlende Adresse', () => {

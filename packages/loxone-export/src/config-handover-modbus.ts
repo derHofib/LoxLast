@@ -144,7 +144,8 @@ export function planModbusDevice(
       [MODBUS_PROPERTIES.command]: command ?? 0,
       [MODBUS_PROPERTIES.dataType]: DATA_TYPE[type] ?? 0,
       [MODBUS_PROPERTIES.registers16Bit]: is32,
-      [MODBUS_PROPERTIES.wordOrderLowFirst]: flags.word,
+      // Bei 16 Bit gibt es keine Wortreihenfolge; Config sperrt das Kästchen dann (aus).
+      [MODBUS_PROPERTIES.wordOrderLowFirst]: is32 && flags.word,
       [MODBUS_PROPERTIES.byteOrderLowFirst]: flags.byte,
     };
   };
