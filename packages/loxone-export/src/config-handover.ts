@@ -8,6 +8,13 @@ import {
   type NamingField,
   type Project,
 } from '@lastplan/core';
+import type { WallboxModel } from '@lastplan/wallbox-library';
+import {
+  MODBUS_PROPERTIES,
+  MODBUS_TYPES,
+  planModbusDevice,
+  type PlannedModbusDevice,
+} from './config-handover-modbus';
 
 /**
  * Übergabeplan für Loxone Config (Umsetzungsplan 6.4, ADR 0013 und 0014).
@@ -27,8 +34,9 @@ import {
  * - Lasttabelle der Lastmanager und Zuordnung der Wallboxen zum Wallbox Manager sind per MCP
  *   nicht schreibbar und kommen als Abhak-Liste.
  *
- * Nicht enthalten (noch nicht belegt): Modbus-Geräte je Ladepunkt und die Umrechnung des
- * Sollwerts kW → A zur Wallbox-Hardware. Beides steht als offener Punkt im Plan.
+ * - Je Ladepunkt mit Modbus TCP: Modbus-Gerät mit Sensoren (Leistung, Zählerstand → Eingänge
+ *   `power`, `energy`) und Aktor (Ladestrom ← Ausgang `outLimit` = Tp in kW). Die Umrechnung
+ *   kW → A übernimmt die Skalierung des Aktors (config-handover-modbus.ts).
  */
 
 /** Typ-Schlüssel aus `get_block_types` (Erkundung 2026-11-16). */
@@ -57,7 +65,7 @@ export const LOXONE_CONNECTORS = {
   loadManagerMaxP: 'maxP',
   loadManagerLoadOut: (n: number) => `AQl${n}`,
   wallboxManagerPmax: 'Pmax',
-  /** Lebender Ausgang einer platzierten Instanz eines virtuellen Eingangs. */
+  /** Lebender Ausgang einer platzierten Instanz eines virtuellen Eingangs oder Sensors. */
   virtualInputRefOut: 'AQ',
 } as const;
 
@@ -125,6 +133,9 @@ export interface HandoverPlan {
   wallboxManagers: PlannedWallboxManager[];
   wallboxes: PlannedWallbox[];
   /** Was der Nutzer nach dem Lauf in den Dialogen einträgt. */
+  modbusDevices: PlannedModbusDevice[];
+  /** Was vor dem Lauf in Config angelegt sein muss (Modbusserver mit Adresse). */
+  prerequisites: string[];
   manualSteps: ManualStep[];
   /** Was LastPlan noch nicht übergibt, weil es nicht belegt ist. */
   pending: string[];
@@ -159,7 +170,10 @@ function clusterLimitA(cluster: Cluster): number {
   return minPhase(clusterOwnLimit(cluster));
 }
 
-export function buildHandoverPlan(project: Project): HandoverPlan {
+export function buildHandoverPlan(
+  project: Project,
+  models: ReadonlyMap<string, WallboxModel> = new Map(),
+): HandoverPlan {
   const V = project.settings.voltageV;
   const blockers: string[] = [];
   const kw3 = (a: number) => floor2(kwFromA(a, 3, V));
@@ -356,11 +370,40 @@ export function buildHandoverPlan(project: Project): HandoverPlan {
     })),
   ];
 
-  const pending = [
-    'Modbus-Gerät je Ladepunkt mit Sensoren und Aktoren aus der Wallbox-Bibliothek: folgt nach der Erkundung eines Modbus-Geräts.',
-    'Sollwert der Wallbox (kW) an die Wallbox-Hardware (meist A): Umrechnung in Config noch offen (ADR 0014).',
-    'Modbus-TCP-Server je Wallbox legst du von Hand an; LastPlan kann sie nicht einfügen (ADR 0013).',
-  ];
+  const pending = ['Freigabe (Ec) und Status der Wallbox werden noch nicht an Modbus angebunden.'];
+  const modbusDevices: PlannedModbusDevice[] = [];
+  const wallboxKeys = new Map(wallboxes.map((w) => [w.key, w]));
+  for (const cp of project.chargePoints) {
+    const wallboxKey = `cp:${cp.id}`;
+    if (!wallboxKeys.has(wallboxKey)) continue;
+    if (cp.protocol !== 'modbus-tcp') {
+      pending.push(`${cp.label}: Protokoll ${cp.protocol} wird noch nicht übergeben.`);
+      continue;
+    }
+    const name = renderName(project, 'modbusDevice', { label: cp.label });
+    claimTitle(name, `Modbus-Gerät ${cp.label}`);
+    const res = planModbusDevice(
+      cp,
+      models.get(cp.libraryModelId),
+      { device: name, wallboxKey },
+      V,
+    );
+    if ('problems' in res) blockers.push(...res.problems);
+    else modbusDevices.push(res.device);
+  }
+  const servers = [...new Set(modbusDevices.map((d) => d.serverAddress))];
+  const prerequisites = servers.map(
+    (a) => `Modbusserver mit Adresse ${a} in Config anlegen (LastPlan kann ihn nicht einfügen).`,
+  );
+  if (modbusDevices.length > 0) {
+    manualSteps.push({
+      block: 'modbus',
+      title: 'Modbus-Sensoren',
+      items: [
+        'Abfragezyklus der Sensoren prüfen und passend zur Regelung einstellen (Config-Standard 300 s).',
+      ],
+    });
+  }
 
   return {
     pageName: `LastPlan – ${project.name}`,
@@ -369,6 +412,8 @@ export function buildHandoverPlan(project: Project): HandoverPlan {
     loadManagers,
     wallboxManagers,
     wallboxes,
+    modbusDevices,
+    prerequisites,
     manualSteps,
     pending,
     blockers,
@@ -383,6 +428,8 @@ function emptyPlan(project: Project, blockers: string[]): HandoverPlan {
     loadManagers: [],
     wallboxManagers: [],
     wallboxes: [],
+    modbusDevices: [],
+    prerequisites: [],
     manualSteps: [],
     pending: [],
     blockers,
@@ -391,9 +438,11 @@ function emptyPlan(project: Project, blockers: string[]): HandoverPlan {
 
 /**
  * Skript für `code_run` (ein Undo-Schritt). Daten gehen als JSON-Literal hinein, nie als
- * zusammengesetzter Code. Verwendete `cfg`-Methoden laut `sdk_describe`: get_tree, add_page,
- * add_block, set_block_property, insert_object, add_object_ref, connect_blocks, arrange_page,
- * validate_project. Gibt die angelegten UUIDs je Plan-Schlüssel zurück.
+ * zusammengesetzter Code. Verwendete `cfg`-Methoden laut `sdk_describe`: get_tree,
+ * get_block_properties, get_block, add_page, add_block, set_block_property, insert_object,
+ * add_object_ref, connect_blocks, arrange_page, validate_project. Alles, was fehlen kann
+ * (Miniserver, Modbusserver), wird vor der ersten Änderung geprüft. Gibt die angelegten UUIDs
+ * je Plan-Schlüssel zurück.
  */
 export function renderHandoverScript(plan: HandoverPlan): string {
   if (plan.blockers.length > 0) {
@@ -426,6 +475,12 @@ export function renderHandoverScript(plan: HandoverPlan): string {
       maxKw: w.maxKw,
       minKw: w.minKw,
     })),
+    modbus: {
+      types: MODBUS_TYPES,
+      serverAddress: MODBUS_PROPERTIES.serverAddress,
+      deviceAddress: MODBUS_PROPERTIES.deviceAddress,
+    },
+    modbusDevices: plan.modbusDevices,
     virtualInputs: plan.virtualInputs.map((v) => ({
       key: v.key,
       name: v.name,
@@ -447,10 +502,28 @@ const walk = (n) => {
   if (n.uuid && n.type && /miniserver/i.test(n.type) && n.isDevice) miniservers.push(n.uuid);
   for (const c of n.children || []) walk(c);
 };
-for (const r of cfg.get_tree({}).roots) walk(r);
+const tree = cfg.get_tree({});
+for (const r of tree.roots) walk(r);
 if (miniservers.length !== 1) {
   throw new Error('Genau ein Miniserver erwartet, gefunden: ' + miniservers.length);
 }
+
+// Modbusserver über ihre Adresse finden (vom Nutzer angelegt).
+const serverByAddress = {};
+const findServers = (n) => {
+  if (n.uuid && n.type === plan.modbus.types.server) {
+    const props = cfg.get_block_properties({ uuid: n.uuid }).properties;
+    const a = props.find((p) => p.id === plan.modbus.serverAddress);
+    if (a && typeof a.value === 'string') (serverByAddress[a.value.trim()] = serverByAddress[a.value.trim()] || []).push(n.uuid);
+  }
+  for (const c of n.children || []) findServers(c);
+};
+if (plan.modbusDevices.length > 0) for (const r of tree.roots) findServers(r);
+const wanted = [...new Set(plan.modbusDevices.map((d) => d.serverAddress))];
+const missing = wanted.filter((a) => !serverByAddress[a]);
+const twice = wanted.filter((a) => serverByAddress[a] && serverByAddress[a].length > 1);
+if (missing.length > 0) throw new Error('Modbusserver fehlt in Config: ' + missing.join(', '));
+if (twice.length > 0) throw new Error('Modbusserver mehrfach mit gleicher Adresse: ' + twice.join(', '));
 
 const page = uuidOf(cfg.add_page({ name: plan.pageName, context_uuid: miniservers[0] }));
 created.page = page;
@@ -494,6 +567,34 @@ for (const v of plan.virtualInputs) {
     from_block_uuid: inst, from_connector_key: plan.conn.viOut,
     to_block_uuid: created[v.target.key], to_connector_key: v.target.connector,
   });
+}
+
+// TODO(verify): Eingangs-Schlüssel einer platzierten Aktor-Instanz ist nicht dokumentiert; das
+// Skript liest ihn per get_block und verlangt genau einen sichtbaren analogen Eingang.
+const actorInput = (inst) => {
+  const ins = cfg.get_block({ uuid: inst }).block.connectors.inputs.filter((c) => !c.hidden && c.dataType === 'analog');
+  if (ins.length !== 1) throw new Error('Eingang der Aktor-Instanz nicht eindeutig: ' + ins.length);
+  return ins[0].key;
+};
+for (const d of plan.modbusDevices) {
+  const dev = uuidOf(cfg.insert_object({ type: plan.modbus.types.device, parent_uuid: serverByAddress[d.serverAddress][0], name: d.name }));
+  created[d.key] = dev;
+  cfg.set_block_property({ uuid: dev, property_id: plan.modbus.deviceAddress, value: d.unitId });
+  for (const r of d.registers) {
+    const type = r.kind === 'sensor' ? plan.modbus.types.analogSensor : plan.modbus.types.analogActor;
+    const io = uuidOf(cfg.insert_object({ type, parent_uuid: dev, name: r.name }));
+    created[d.key + ':' + r.role] = io;
+    for (const id of Object.keys(r.properties)) {
+      cfg.set_block_property({ uuid: io, property_id: Number(id), value: r.properties[id] });
+    }
+    const inst = uuidOf(cfg.add_object_ref({ source_uuid: io, page_uuid: page }));
+    const wb = created[d.wallboxKey];
+    if (r.kind === 'sensor') {
+      cfg.connect_blocks({ from_block_uuid: inst, from_connector_key: plan.conn.viOut, to_block_uuid: wb, to_connector_key: r.wallboxConnector });
+    } else {
+      cfg.connect_blocks({ from_block_uuid: wb, from_connector_key: r.wallboxConnector, to_block_uuid: inst, to_connector_key: actorInput(inst) });
+    }
+  }
 }
 
 cfg.arrange_page({ page_uuid: page });
