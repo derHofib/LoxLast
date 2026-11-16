@@ -6,6 +6,7 @@ import { repository } from '../storage/db';
 import { command } from '../state/history';
 import { ChargePointsTab } from '../features/chargepoints/ChargePointsTab';
 import { ExportView } from '../features/export/ExportView';
+import { LiveView } from '../features/live';
 
 export const PROJECT_TABS = [
   { id: 'struktur', label: 'Struktur' },
@@ -13,10 +14,6 @@ export const PROJECT_TABS = [
   { id: 'export', label: 'Export' },
   { id: 'live', label: 'Live' },
 ] as const;
-
-const PLACEHOLDER: Record<string, string> = {
-  live: 'Live-Werte folgen in Meilenstein 8 (benötigt das Gateway).',
-};
 
 /** Struktur-Ansicht (React Flow + elkjs) erst beim Öffnen laden, das hält die Startseite klein. */
 const StructureView = lazy(() =>
@@ -119,7 +116,7 @@ export function ProjectShell() {
           ) : tab === 'export' ? (
             <ExportView />
           ) : (
-            <Card>{PLACEHOLDER[tab]}</Card>
+            <LiveView />
           )}
         </div>
       </Tabs>
