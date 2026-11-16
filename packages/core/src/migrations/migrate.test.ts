@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { makeSampleProject } from '../__tests__/fixtures';
+import { DEFAULT_NAMING_SCHEME, NAMING_SCHEME_V1 } from '../model/naming';
 import {
   MIGRATIONS,
   ProjectMigrationError,
@@ -92,11 +93,28 @@ describe('loadProject', () => {
     });
   });
 
+  it('1 → 2: altes Standard-Benennungsschema wird ersetzt, eigene Vorlagen bleiben', () => {
+    const raw = JSON.parse(JSON.stringify(makeSampleProject())) as Record<string, unknown>;
+    raw['schemaVersion'] = 1;
+    (raw['settings'] as Record<string, unknown>)['namingScheme'] = {
+      ...NAMING_SCHEME_V1,
+      modbusDevice: 'Modbus {label}',
+    };
+    const r = loadProject(raw);
+    expect(r.ok && r.migratedFrom).toBe(1);
+    expect(r.ok && r.project.settings.namingScheme).toEqual({
+      ...DEFAULT_NAMING_SCHEME,
+      modbusDevice: 'Modbus {label}',
+    });
+    expect(MIGRATIONS[1]!({ schemaVersion: 1 })).toEqual({ schemaVersion: 1 });
+    expect(MIGRATIONS[1]!({ settings: {} })).toEqual({ settings: {} });
+  });
+
   it('meldet Migrationsfehler als Text', () =>
     expect(loadProject({ schemaVersion: 99 })).toEqual({
       ok: false,
       errors: [
-        'Projekt wurde mit einer neueren LastPlan-Version gespeichert (Format 99, unterstützt bis 1). Bitte LastPlan aktualisieren.',
+        'Projekt wurde mit einer neueren LastPlan-Version gespeichert (Format 99, unterstützt bis 2). Bitte LastPlan aktualisieren.',
       ],
     }));
 

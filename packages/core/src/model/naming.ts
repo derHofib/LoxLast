@@ -7,8 +7,8 @@ import { z } from 'zod';
 export const NAMING_PLACEHOLDERS = {
   siteManager: [],
   clusterManager: ['cluster'],
-  groupLimit: ['cluster', 'group'],
-  wallbox: ['label'],
+  groupLimit: ['cluster', 'group', 'groupNo'],
+  wallbox: ['label', 'cluster', 'group', 'groupNo'],
   modbusDevice: ['label'],
 } as const satisfies Record<string, readonly string[]>;
 
@@ -52,7 +52,21 @@ export const NamingSchemeSchema = z.object({
 });
 export type NamingScheme = z.infer<typeof NamingSchemeSchema>;
 
+/**
+ * Standard (Wunsch des Auftraggebers 2026-11-16): Jeder Name beginnt mit dem Namen seines
+ * Elternbausteins, damit in den Config-Dialogen eine Suche nach dem Anfang genügt.
+ * {groupNo} ist die laufende Nummer der Gruppe im Cluster (1, 2, …).
+ */
 export const DEFAULT_NAMING_SCHEME: NamingScheme = {
+  siteManager: 'LM_Standort',
+  clusterManager: 'LM_{cluster}',
+  groupLimit: 'WM_{cluster}_G{groupNo}',
+  wallbox: 'WB_{cluster}_G{groupNo}_{label}',
+  modbusDevice: 'MB_{label}',
+};
+
+/** Standard bis Projektformat 1; die Migration auf Format 2 ersetzt unveränderte Vorlagen. */
+export const NAMING_SCHEME_V1: NamingScheme = {
   siteManager: 'LM_Standort',
   clusterManager: 'LM_{cluster}',
   groupLimit: 'LIM_{cluster}_{group}',

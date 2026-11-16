@@ -36,7 +36,7 @@ describe('createProject', () => {
   it('Einstellungen sind keine geteilte Referenz auf die Standardwerte', () => {
     const project = createProject({ name: 'X' });
     project.settings.namingScheme.wallbox = 'EV_{label}';
-    expect(DEFAULT_SETTINGS.namingScheme.wallbox).toBe('WB_{label}');
+    expect(DEFAULT_SETTINGS.namingScheme.wallbox).toBe('WB_{cluster}_G{groupNo}_{label}');
   });
 });
 
@@ -53,7 +53,7 @@ describe('ProjectSchema', () => {
   });
 
   it('lehnt eine andere Formatversion ab', () => {
-    const r = ProjectSchema.safeParse({ ...makeSampleProject(), schemaVersion: 2 });
+    const r = ProjectSchema.safeParse({ ...makeSampleProject(), schemaVersion: 99 });
     expect(r.error?.issues[0]?.message).toBe(
       `Projektformat-Version wird nicht unterstützt (erwartet: ${CURRENT_SCHEMA_VERSION})`,
     );

@@ -14,12 +14,12 @@ describe('NamingScheme', () => {
   it('meldet unzulässige Platzhalter mit erlaubter Auswahl', () => {
     const r = NamingSchemeSchema.safeParse({
       ...DEFAULT_NAMING_SCHEME,
-      wallbox: 'WB_{cluster}_{label}',
+      modbusDevice: 'MB_{cluster}_{label}',
     });
     expect(r.success).toBe(false);
     expect(r.error?.issues).toMatchObject([
       {
-        path: ['wallbox'],
+        path: ['modbusDevice'],
         message: 'Platzhalter {cluster} ist hier nicht erlaubt – erlaubt: {label}',
       },
     ]);

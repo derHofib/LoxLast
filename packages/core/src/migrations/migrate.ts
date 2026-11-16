@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { DEFAULT_NAMING_SCHEME, NAMING_SCHEME_V1 } from '../model/naming';
 import { CURRENT_SCHEMA_VERSION, ProjectSchema, type Project } from '../model/project';
 
 /**
@@ -13,8 +14,28 @@ import { CURRENT_SCHEMA_VERSION, ProjectSchema, type Project } from '../model/pr
 export type RawDocument = Record<string, unknown>;
 export type Migration = (doc: RawDocument) => RawDocument;
 
-/** Schlüssel = Ausgangsversion. Derzeit gibt es nur Version 1, daher noch keine Migrationen. */
-export const MIGRATIONS: Readonly<Record<number, Migration>> = {};
+const isRecord = (v: unknown): v is RawDocument =>
+  typeof v === 'object' && v !== null && !Array.isArray(v);
+
+/**
+ * 1 → 2: neues Standard-Benennungsschema (2026-11-16). Nur Vorlagen, die noch dem alten Standard
+ * entsprechen, werden ersetzt; eigene Vorlagen bleiben.
+ */
+const migrateNamingV1: Migration = (doc) => {
+  const settings = doc['settings'];
+  if (!isRecord(settings)) return doc;
+  const scheme = settings['namingScheme'];
+  if (!isRecord(scheme)) return doc;
+  const next: RawDocument = { ...scheme };
+  for (const [field, old] of Object.entries(NAMING_SCHEME_V1)) {
+    if (scheme[field] === old)
+      next[field] = DEFAULT_NAMING_SCHEME[field as keyof typeof NAMING_SCHEME_V1];
+  }
+  return { ...doc, settings: { ...settings, namingScheme: next } };
+};
+
+/** Schlüssel = Ausgangsversion. */
+export const MIGRATIONS: Readonly<Record<number, Migration>> = { 1: migrateNamingV1 };
 
 export class ProjectMigrationError extends Error {
   override readonly name = 'ProjectMigrationError';
@@ -24,9 +45,6 @@ export interface MigrateOptions {
   migrations?: Readonly<Record<number, Migration>>;
   targetVersion?: number;
 }
-
-const isRecord = (v: unknown): v is RawDocument =>
-  typeof v === 'object' && v !== null && !Array.isArray(v);
 
 /** Hebt ein Rohdokument auf die Zielversion. Wirft ProjectMigrationError mit deutscher Meldung. */
 export function migrateDocument(

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createProject, type ChargePoint, type Project } from '@lastplan/core';
+import { NAMING_SCHEME_V1, createProject, type ChargePoint, type Project } from '@lastplan/core';
 import type { RegisterDef, WallboxModel } from '@lastplan/wallbox-library';
 import {
   buildHandoverPlan,
@@ -86,6 +86,8 @@ function sample(): Project {
   const gaeste = { id: id(), name: 'Gäste', clusterId: strang.id, priority: 3 as const };
   return {
     ...p,
+    // Die meisten Fälle prüfen mit dem alten, kurzen Schema; das neue Standard-Schema hat einen eigenen Test.
+    settings: { ...p.settings, namingScheme: { ...NAMING_SCHEME_V1 } },
     site: { gridConnectionFuseA: 250, gridConnectionLabel: 'HAK', buildingReserveA: 80 },
     clusters: [tg, strang],
     groups: [mieter, flotte, gaeste],
@@ -151,7 +153,7 @@ describe('buildHandoverPlan', () => {
     expect(plan.virtualInputs).toEqual([
       {
         key: 'vi:site',
-        name: 'LM_Standort Limit (kW) – 170 A',
+        name: 'VI_LM_Standort Limit kW (170 A)',
         valueKw: 117.3,
         valueA: 170,
         target: { key: 'site', connector: 'maxP' },
@@ -188,6 +190,20 @@ describe('buildHandoverPlan', () => {
     expect(plan.loadManagers[1]?.title).toBe('Last TG');
     expect(plan.wallboxes[0]?.title).toBe('Wallbox LP04');
     expect(renderName(p, 'groupLimit', { cluster: 'A' })).toBe('LIM_A_');
+  });
+
+  it('Standard-Schema: Name beginnt mit dem Elternbaustein, Gruppe als G1, G2 …', () => {
+    const p = { ...sample(), settings: createProject({ name: 'x', now: NOW }).settings };
+    const plan = buildHandoverPlan(p, MODELS);
+    expect(plan.wallboxManagers.map((w) => [w.title, w.wallboxes])).toEqual([
+      ['WM_Strang_G1', ['WB_Strang_G1_LP04']],
+      ['WM_TG_G2', ['WB_TG_G2_LP03']],
+      ['WM_TG_G1', ['WB_TG_G1_LP01', 'WB_TG_G1_LP02']],
+    ]);
+    const steps = Object.fromEntries(plan.manualSteps.map((s) => [s.title, s.items[0]]));
+    expect(steps['WM_TG_G1']).toContain('(Suche: „WB_TG_G1_“)');
+    expect(steps['LM_TG']).not.toContain('Suche');
+    expect(plan.virtualInputs[0]?.name).toMatch(/^VI_LM_Standort Limit kW \(/);
   });
 
   it('sperrt bei fehlenden Angaben, doppelten Namen, leeren Gruppen und Kreisen', () => {
