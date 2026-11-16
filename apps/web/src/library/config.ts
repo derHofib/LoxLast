@@ -6,8 +6,8 @@
 /** Veröffentlichtes Bibliothekspaket auf GitHub Pages (siehe packages/wallbox-library/README.md). */
 export const LIBRARY_URL = 'https://derhofib.github.io/LoxLast/library.json';
 
-/** Standard: beim App-Start nach einer neueren Bibliothek sehen. */
-export const LIBRARY_CHECK_ON_START = true;
+/** Standard: nicht automatisch beim Start abrufen, nur auf Wunsch (ADR 0002). */
+export const LIBRARY_CHECK_ON_START = false;
 
 /** Schalter im Browser (pro Gerät): „on“ oder „off“. Ohne Eintrag gilt LIBRARY_CHECK_ON_START. */
 export const CHECK_ON_START_KEY = 'lastplan.library.checkOnStart';

@@ -156,3 +156,11 @@ body {
   gap: var(--space-4);
   margin-bottom: var(--space-4);
 }
+
+.library-panel__option {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  cursor: pointer;
+}
