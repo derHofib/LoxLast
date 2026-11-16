@@ -11,3 +11,6 @@ coverage/
 .DS_Store
 playwright-report/
 test-results/
+
+# Bibliothekspaket für GitHub Pages (lokaler Bau)
+dist-bundle/
