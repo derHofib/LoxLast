@@ -181,6 +181,9 @@ describe('runConfigDiscovery', () => {
       query: (code) =>
         code === PROJECT_QUERY ? Promise.resolve(PROJECT) : Promise.reject(new TypeError('x')),
       getDoc: () => Promise.resolve(''),
+      run: () => Promise.resolve(null),
+      undo: () => Promise.resolve({ canUndo: false, canRedo: false }),
+      save: () => Promise.resolve(),
       close: () => Promise.resolve(),
     };
     expect((await runConfigDiscovery(stub)).status.status).toBe('error');

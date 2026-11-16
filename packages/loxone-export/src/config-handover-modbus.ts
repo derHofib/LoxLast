@@ -77,7 +77,7 @@ export interface PlannedRegister {
   kind: 'sensor' | 'actor';
   role: RegisterRole;
   /** Anschluss am Wallbox-Baustein: Ziel (Sensor) bzw. Quelle (Aktor). */
-  wallboxConnector: string;
+  wallboxConnector: 'power' | 'energy' | 'outLimit';
   properties: Record<number, number | boolean | string>;
 }
 
@@ -152,7 +152,7 @@ export function planModbusDevice(
   const sensor = (
     role: RegisterRole,
     label: string,
-    connector: string,
+    connector: 'power' | 'energy',
     toUnit: Record<string, number>,
     unit: string,
     pollSeconds: number,

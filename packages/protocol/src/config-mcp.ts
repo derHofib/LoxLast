@@ -67,3 +67,116 @@ export const ConfigDiscoveryResponseSchema = z.object({
   report: ConfigDiscoveryReportSchema.nullable(),
 });
 export type ConfigDiscoveryResponse = z.infer<typeof ConfigDiscoveryResponseSchema>;
+
+/**
+ * POST /api/config/handover – Übergabe an Config (Umsetzungsplan 6.5, ADR 0013/0014).
+ *
+ * Die App schickt den Übergabeplan (aus `@lastplan/loxone-export`), nicht ein Skript: Das
+ * Gateway erzeugt das `code_run`-Skript selbst und führt nur aus, was dieses Schema zulässt.
+ */
+const PlanKeySchema = z.string().regex(/^[a-z]+(:[0-9a-zA-Z-]+)?$/, 'Ungültiger Plan-Schlüssel');
+const PlanTitleSchema = z.string().trim().min(1).max(200);
+const KwSchema = z.number().finite().min(0).max(100000);
+const ParentSchema = z.object({ key: PlanKeySchema, slot: z.number().int().min(1).max(12) });
+
+export const ConfigHandoverPlanSchema = z.object({
+  pageName: PlanTitleSchema,
+  loadManagers: z
+    .array(
+      z.object({
+        key: PlanKeySchema,
+        title: PlanTitleSchema,
+        maxKw: KwSchema,
+        parent: ParentSchema.optional(),
+      }),
+    )
+    .min(1)
+    .max(500),
+  wallboxManagers: z
+    .array(z.object({ key: PlanKeySchema, title: PlanTitleSchema, parent: ParentSchema }))
+    .max(2000),
+  wallboxes: z
+    .array(
+      z.object({ key: PlanKeySchema, title: PlanTitleSchema, maxKw: KwSchema, minKw: KwSchema }),
+    )
+    .max(5000),
+  virtualInputs: z
+    .array(
+      z.object({
+        key: PlanKeySchema,
+        name: PlanTitleSchema,
+        target: z.object({ key: PlanKeySchema, connector: z.enum(['maxP', 'Pmax']) }),
+      }),
+    )
+    .max(500),
+  modbusDevices: z
+    .array(
+      z.object({
+        key: PlanKeySchema,
+        name: PlanTitleSchema,
+        wallboxKey: PlanKeySchema,
+        serverAddress: z.string().regex(/^\d{1,3}(\.\d{1,3}){3}:\d{1,5}$/),
+        unitId: z.number().int().min(0).max(255),
+        registers: z
+          .array(
+            z.object({
+              name: PlanTitleSchema,
+              kind: z.enum(['sensor', 'actor']),
+              role: z.string().regex(/^[a-zA-Z0-9]+$/),
+              wallboxConnector: z.enum(['power', 'energy', 'outLimit']),
+              properties: z.record(
+                z.string().regex(/^\d{1,6}$/),
+                z.union([z.number().finite(), z.boolean(), z.string().max(64)]),
+              ),
+            }),
+          )
+          .max(20),
+      }),
+    )
+    .max(5000),
+});
+export type ConfigHandoverPlan = z.infer<typeof ConfigHandoverPlanSchema>;
+
+export const ConfigHandoverRequestSchema = z.object({ plan: ConfigHandoverPlanSchema });
+export type ConfigHandoverRequest = z.infer<typeof ConfigHandoverRequestSchema>;
+
+export const ConfigValidationIssueSchema = z.object({
+  rule: z.string(),
+  severity: z.string(),
+  message: z.string(),
+  objectUuid: z.string().optional(),
+});
+export type ConfigValidationIssue = z.infer<typeof ConfigValidationIssueSchema>;
+
+export const ConfigHandoverResultSchema = z.object({
+  /** UUIDs der angelegten Objekte je Plan-Schlüssel. */
+  created: z.record(z.string(), z.string()),
+  validation: z.object({ valid: z.boolean(), issues: z.array(ConfigValidationIssueSchema) }),
+});
+export type ConfigHandoverResult = z.infer<typeof ConfigHandoverResultSchema>;
+
+export const ConfigHandoverResponseSchema = z.object({
+  status: ConfigMcpStatusResponseSchema,
+  /** Gesetzt, wenn das Skript durchgelaufen ist. */
+  result: ConfigHandoverResultSchema.nullable(),
+  /**
+   * Gesetzt, wenn das Skript mit Fehler abgebrochen ist. Was bis dahin angelegt wurde, liegt in
+   * derselben Undo-Gruppe; `undoRecommended` sagt, ob ein Rückgängig sinnvoll ist.
+   */
+  failure: z
+    .object({ code: z.string(), message: z.string(), undoRecommended: z.boolean() })
+    .nullable(),
+});
+export type ConfigHandoverResponse = z.infer<typeof ConfigHandoverResponseSchema>;
+
+/** POST /api/config/undo bzw. /api/config/save – einzelne, bewusst ausgelöste Schritte. */
+export const ConfigUndoResponseSchema = z.object({
+  success: z.boolean(),
+  canUndo: z.boolean(),
+  canRedo: z.boolean(),
+  message: z.string(),
+});
+export type ConfigUndoResponse = z.infer<typeof ConfigUndoResponseSchema>;
+
+export const ConfigSaveResponseSchema = z.object({ saved: z.boolean(), message: z.string() });
+export type ConfigSaveResponse = z.infer<typeof ConfigSaveResponseSchema>;

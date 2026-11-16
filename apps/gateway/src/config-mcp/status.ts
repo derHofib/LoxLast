@@ -22,6 +22,7 @@ export const REQUIRED_SDK_METHODS = [
   'add_object_ref',
   'set_block_property',
   'connect_blocks',
+  'arrange_page',
   'validate_project',
 ] as const;
 

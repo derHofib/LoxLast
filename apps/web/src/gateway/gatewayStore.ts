@@ -1,11 +1,18 @@
 import {
   ConfigDiscoveryResponseSchema,
+  ConfigHandoverResponseSchema,
   ConfigMcpStatusResponseSchema,
+  ConfigSaveResponseSchema,
+  ConfigUndoResponseSchema,
   DeviceTestResponseSchema,
   ErrorResponseSchema,
   TokenResponseSchema,
   type ConfigDiscoveryResponse,
+  type ConfigHandoverPlan,
+  type ConfigHandoverResponse,
   type ConfigMcpStatusResponse,
+  type ConfigSaveResponse,
+  type ConfigUndoResponse,
   type DeviceTestRequest,
   type DeviceTestResponse,
 } from '@lastplan/protocol';
@@ -158,16 +165,34 @@ export async function requestDeviceTest(req: DeviceTestRequest): Promise<DeviceT
   }
 }
 
-async function authorizedGet<T>(
+type Schema<T> = { safeParse(v: unknown): { success: true; data: T } | { success: false } };
+
+async function authorizedGet<T>(path: string, schema: Schema<T>): Promise<T> {
+  return authorized(path, schema, 'GET');
+}
+
+/** POST immer mit JSON-Körper (Fastify lehnt leere Körper mit JSON-Content-Type ab). */
+async function authorizedPost<T>(
   path: string,
-  schema: { safeParse(v: unknown): { success: true; data: T } | { success: false } },
+  schema: Schema<T>,
+  payload: unknown = {},
+): Promise<T> {
+  return authorized(path, schema, 'POST', payload);
+}
+
+async function authorized<T>(
+  path: string,
+  schema: Schema<T>,
+  method: 'GET' | 'POST',
+  payload?: unknown,
 ): Promise<T> {
   const session = activeSession();
   if (!session) throw new GatewayError('Gateway nicht gekoppelt oder Kopplung abgelaufen.', 401);
   try {
     const body = await call(session.baseUrl, path, {
-      method: 'GET',
+      method,
       headers: { Authorization: `Bearer ${session.token}` },
+      ...(payload === undefined ? {} : { body: JSON.stringify(payload) }),
     });
     const parsed = schema.safeParse(body);
     if (!parsed.success) throw new GatewayError('Antwort des Gateways ist ungültig.', null);
@@ -186,4 +211,19 @@ export function requestConfigStatus(): Promise<ConfigMcpStatusResponse> {
 /** Config-Erkundung, nur lesend (GET /api/config/discovery, Plan 6.3). */
 export function requestConfigDiscovery(): Promise<ConfigDiscoveryResponse> {
   return authorizedGet('/api/config/discovery', ConfigDiscoveryResponseSchema);
+}
+
+/** Übergabeplan in Config anlegen (POST /api/config/handover, Plan 6.5). */
+export function requestConfigHandover(plan: ConfigHandoverPlan): Promise<ConfigHandoverResponse> {
+  return authorizedPost('/api/config/handover', ConfigHandoverResponseSchema, { plan });
+}
+
+/** Letzten Schritt in Config rückgängig machen (POST /api/config/undo). */
+export function requestConfigUndo(): Promise<ConfigUndoResponse> {
+  return authorizedPost('/api/config/undo', ConfigUndoResponseSchema);
+}
+
+/** Projekt in Config speichern (POST /api/config/save). */
+export function requestConfigSave(): Promise<ConfigSaveResponse> {
+  return authorizedPost('/api/config/save', ConfigSaveResponseSchema);
 }
