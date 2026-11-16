@@ -30,6 +30,23 @@ und Seite.
 - Platzhalter sind Texte, die mit `TODO` beginnen, zum Beispiel `"TODO"`
   oder `"TODO(verify: ...)"`.
 
+## Byte-Reihenfolge
+
+Für Werte über zwei Register legt Modbus die Reihenfolge nicht fest. Sie
+steht deshalb in jeder Modelldatei unter `modbus.byteOrder` und kann je
+Register mit `registers.<rolle>.byteOrder` abweichen. A ist das
+höchstwertige Byte.
+
+| Wert            | 32 Bit | 16 Bit | Loxone Config (Schalter am Sensor/Aktor) |
+| --------------- | ------ | ------ | ---------------------------------------- |
+| `big-endian`    | ABCD   | AB     | keiner                                   |
+| `word-swapped`  | CDAB   | AB     | Wortreihenfolge                          |
+| `byte-swapped`  | BADC   | BA     | Byte-Reihenfolge                         |
+| `little-endian` | DCBA   | BA     | Wort- und Byte-Reihenfolge               |
+
+Welcher Wert gilt, steht im Modbus-Handbuch des Herstellers. Ohne Quelle
+bleibt er `"TODO"`.
+
 ## Status
 
 | Status       | Bedeutung                                                               |

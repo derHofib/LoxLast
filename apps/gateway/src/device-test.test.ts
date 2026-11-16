@@ -57,6 +57,25 @@ describe('planDeviceTest', () => {
     expect(plan.missing).not.toContain('modbus.defaultUnitId');
   });
 
+  it('Byte-Reihenfolge je Register überschreibt die des Modells', () => {
+    const m = testModel();
+    m.modbus.byteOrder = 'big-endian';
+    m.modbus.registers.power = { ...m.modbus.registers.power!, byteOrder: 'byte-swapped' };
+    const plan = planDeviceTest(m, m.id, 1);
+    expect(plan.ok).toBe(true);
+    if (!plan.ok) return;
+    expect(plan.reads.find((r) => r.role === 'power')?.byteOrder).toBe('byte-swapped');
+    expect(plan.reads.find((r) => r.role === 'currentL1')?.byteOrder).toBe('big-endian');
+  });
+
+  it('Modell ohne Byte-Reihenfolge ist prüfbar, wenn jedes Register eine eigene hat', () => {
+    const m = testModel();
+    m.modbus.byteOrder = 'TODO';
+    for (const def of Object.values(m.modbus.registers)) def.byteOrder = 'word-swapped';
+    const plan = planDeviceTest(m, m.id, 1);
+    expect(plan.ok).toBe(true);
+  });
+
   it('unbekanntes Modell, fehlendes Modbus, fehlende Unit-ID, fehlendes Register', () => {
     expect(planDeviceTest(undefined, 'x/y@1', 1)).toMatchObject({
       ok: false,
@@ -101,8 +120,10 @@ describe('decodeRegisters', () => {
     expect(decodeRegisters([0xfffe], 'int16', 'big-endian')).toBe(-2);
     expect(decodeRegisters([0x0102], 'uint16', 'little-endian')).toBe(0x0201);
     expect(decodeRegisters([0x0102], 'uint16', 'word-swapped')).toBe(0x0102);
+    expect(decodeRegisters([0x0102], 'uint16', 'byte-swapped')).toBe(0x0201);
   });
-  it('32 Bit: ABCD, CDAB, DCBA und float32', () => {
+  it('32 Bit: ABCD, CDAB, BADC, DCBA und float32', () => {
+    expect(decodeRegisters([0x0100, 0x0200], 'uint32', 'byte-swapped')).toBe(0x00010002);
     expect(decodeRegisters([0x0001, 0x0002], 'uint32', 'big-endian')).toBe(0x00010002);
     expect(decodeRegisters([0x0002, 0x0001], 'uint32', 'word-swapped')).toBe(0x00010002);
     expect(decodeRegisters([0x0200, 0x0100], 'uint32', 'little-endian')).toBe(0x00010002);

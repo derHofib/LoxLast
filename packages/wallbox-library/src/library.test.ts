@@ -109,6 +109,22 @@ describe('checkModel', () => {
     expect(result.issues).toEqual([]);
   });
 
+  it('alle vier Byte-Reihenfolgen, auch je Register, sind gültig; andere nicht', () => {
+    for (const order of ['big-endian', 'word-swapped', 'byte-swapped', 'little-endian']) {
+      const data = completeModel();
+      const modbus = data['modbus'] as {
+        byteOrder: string;
+        registers: Record<string, Record<string, unknown>>;
+      };
+      modbus.byteOrder = order;
+      modbus.registers['power']!['byteOrder'] = order;
+      expect(checkModel(data).status).toBe('complete');
+    }
+    const data = completeModel();
+    (data['modbus'] as Record<string, unknown>)['byteOrder'] = 'CDAB';
+    expect(checkModel(data).status).toBe('invalid');
+  });
+
   it('TODO-Platzhalter machen das Modell unvollständig, nicht ungültig', () => {
     const data = completeModel();
     (data['modbus'] as Record<string, unknown>)['defaultPort'] = 'TODO(verify)';

@@ -5,7 +5,12 @@ import {
   type DeviceTestRole,
   type NetworkEndpoint,
 } from '@lastplan/protocol';
-import { isTodo, type RegisterType, type WallboxModel } from '@lastplan/wallbox-library';
+import {
+  isTodo,
+  type ByteOrder,
+  type RegisterType,
+  type WallboxModel,
+} from '@lastplan/wallbox-library';
 import { ModbusError, ModbusExceptionError } from './clients/modbus-errors';
 import { FunctionCode } from './clients/modbus-frame';
 import type { ModbusClient, ModbusEndpoint } from './clients/types';
@@ -42,8 +47,6 @@ const READ_CODES: readonly number[] = [
   FunctionCode.ReadInputRegisters,
 ];
 
-type ByteOrder = 'big-endian' | 'little-endian' | 'word-swapped';
-
 export interface PlannedRead {
   role: DeviceTestRole;
   address: number;
@@ -52,10 +55,12 @@ export interface PlannedRead {
   scale: number;
   unit: string;
   enum: Record<string, string> | undefined;
+  /** Gilt für dieses Register: eigene Angabe oder `modbus.byteOrder`. */
+  byteOrder: ByteOrder;
 }
 
 export type ReadPlan =
-  | { ok: true; unitId: number; byteOrder: ByteOrder; reads: PlannedRead[] }
+  | { ok: true; unitId: number; reads: PlannedRead[] }
   | { ok: false; missing: string[]; message: string };
 
 /** Was der Test lesen würde – oder warum er es nicht darf. */
@@ -88,7 +93,12 @@ export function planDeviceTest(
     gaps.push('Unit-ID (am Ladepunkt eintragen oder in der Bibliothek ergänzen)');
   }
   const byteOrder = model.modbus.byteOrder;
-  if (isTodo(byteOrder)) {
+  // Die modellweite Angabe fehlt nur dann, wenn ein Register sie auch braucht.
+  const needsDefault = DEVICE_TEST_ROLES.some((r) => {
+    const def = model.modbus.registers[r];
+    return def !== undefined && def.byteOrder === undefined;
+  });
+  if (isTodo(byteOrder) && needsDefault) {
     missing.push('modbus.byteOrder');
     gaps.push('Byte-Reihenfolge');
   }
@@ -122,6 +132,7 @@ export function planDeviceTest(
       scale: def.scale as number,
       unit: def.unit as string,
       enum: def.enum === undefined || isTodo(def.enum) ? undefined : def.enum,
+      byteOrder: def.byteOrder ?? (byteOrder as ByteOrder),
     });
   }
 
@@ -134,7 +145,7 @@ export function planDeviceTest(
     if (problems.length > 0) parts.push(`Bibliothek widersprüchlich (${problems.join('; ')}).`);
     return { ok: false, missing, message: `Nicht prüfbar: ${parts.join(' ')}` };
   }
-  return { ok: true, unitId: unitId as number, byteOrder: byteOrder as ByteOrder, reads };
+  return { ok: true, unitId: unitId as number, reads };
 }
 
 const is32 = (t: RegisterType): boolean => t === 'uint32' || t === 'int32' || t === 'float32';
@@ -142,8 +153,9 @@ const is32 = (t: RegisterType): boolean => t === 'uint32' || t === 'int32' || t 
 /**
  * Register in einen Zahlenwert umwandeln. Modbus überträgt jedes Register Big-Endian
  * (Application Protocol V1.1b3, Kap. 4.2); für Werte über mehrere Register legt die Spezifikation
- * nichts fest – das regelt `byteOrder` der Modelldatei (Bedeutung siehe ADR 0012):
- * big-endian = ABCD, word-swapped = CDAB, little-endian = DCBA (bei 16 Bit: BA).
+ * nichts fest – das regelt `byteOrder` der Modelldatei bzw. des Registers (siehe ADR 0012):
+ * big-endian = ABCD, word-swapped = CDAB, byte-swapped = BADC, little-endian = DCBA
+ * (bei 16 Bit: big-endian/word-swapped = AB, byte-swapped/little-endian = BA).
  */
 export function decodeRegisters(
   raw: readonly number[],
@@ -152,10 +164,11 @@ export function decodeRegisters(
 ): number {
   const bytes = Buffer.alloc(raw.length * 2);
   raw.forEach((r, i) => bytes.writeUInt16BE(r, i * 2));
-  let b = bytes;
-  if (order === 'little-endian') b = Buffer.from(bytes).reverse();
-  else if (order === 'word-swapped' && raw.length === 2)
-    b = Buffer.concat([bytes.subarray(2, 4), bytes.subarray(0, 2)]);
+  const swapBytes = order === 'byte-swapped' || order === 'little-endian';
+  const swapWords = order === 'word-swapped' || order === 'little-endian';
+  let b = Buffer.from(bytes);
+  if (swapBytes) b.swap16();
+  if (swapWords && raw.length === 2) b = Buffer.concat([b.subarray(2, 4), b.subarray(0, 2)]);
   switch (type) {
     case 'uint16':
       return b.readUInt16BE(0);
@@ -265,7 +278,7 @@ export async function runDeviceTest(
       latencyMs ??= Math.round(now() - start);
       reachable = true;
       reading.raw = raw;
-      reading.value = scaled(decodeRegisters(raw, read.type, plan.byteOrder), read.scale);
+      reading.value = scaled(decodeRegisters(raw, read.type, read.byteOrder), read.scale);
       reading.text = read.enum?.[String(reading.value)] ?? null;
     } catch (error) {
       if (error instanceof ModbusExceptionError) {

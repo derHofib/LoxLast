@@ -29,8 +29,15 @@ bisher nur aus `TODO`-Werten. Eine Test-Wallbox gibt es noch nicht.
   in der Software ergänzt wird. Das Gateway prüft sie mit Schema und Regeln der Bibliothek (`checkModel`), verlangt
   `id === libraryModelId` und nimmt sie dann vorrangig. `modelSource` in der Antwort nennt die Quelle.
 - **Byte-Reihenfolge.** Modbus überträgt jedes Register Big-Endian (V1.1b3, Kap. 4.2); für 32-Bit-Werte legt die
-  Spezifikation nichts fest. Bedeutung von `byteOrder` in der Bibliothek: `big-endian` = ABCD (höheres Register
-  zuerst), `word-swapped` = CDAB, `little-endian` = DCBA (bei 16 Bit BA). Wert = Rohwert × `scale`.
+  Spezifikation nichts fest. Deshalb steht die Reihenfolge **je Wallbox-Modell** in dessen Bibliotheksdatei
+  (`modbus.byteOrder`) und kann **je Register** abweichend angegeben werden (`registers.<rolle>.byteOrder`), wie vom
+  Auftraggeber am 2026-11-16 gefordert. Mit A = höchstwertiges Byte gilt: `big-endian` = ABCD, `word-swapped` = CDAB,
+  `byte-swapped` = BADC, `little-endian` = DCBA; bei 16 Bit `big-endian`/`word-swapped` = AB,
+  `byte-swapped`/`little-endian` = BA. Das entspricht den beiden Schaltern, die Loxone Config an Modbus-Sensoren und
+  -Aktoren anbietet (laut Techdoc: „Wortreihenfolge – niederwertiges Wort zuerst“, „Byte-Reihenfolge – niederwertiges
+  Byte zuerst“): `word-swapped` = nur Wortreihenfolge, `byte-swapped` = nur Byte-Reihenfolge, `little-endian` = beide.
+  Fehlt die Angabe am Modell, ist der Test nur möglich, wenn jedes gelesene Register eine eigene hat. Wert = Rohwert ×
+  `scale`.
 - **Antwort** (`packages/protocol/src/devices.ts`): `outcome` (`ok`, `not_testable`, `device_error`, `unreachable`),
   `reachable`, `latencyMs` (Dauer der ersten beantworteten Modbus-Anfrage inkl. Verbindungsaufbau; bei „nicht prüfbar“
   die TCP-Aufbauzeit), `values` (Rolle → Wert bzw. Statustext), `readings` (Wert, Einheit, Rohregister, Fehler je
