@@ -510,6 +510,7 @@ export function renderHandoverScript(plan: HandoverScriptInput): string {
       types: MODBUS_TYPES,
       serverAddress: MODBUS_PROPERTIES.serverAddress,
       deviceAddress: MODBUS_PROPERTIES.deviceAddress,
+      dataType: MODBUS_PROPERTIES.dataType,
     },
     modbusDevices: plan.modbusDevices,
     virtualInputs: plan.virtualInputs.map((v) => ({
@@ -645,6 +646,28 @@ const actorInput = (inst) => {
   if (ins.length !== 1) throw new Error('Eingang der Aktor-Instanz nicht eindeutig: ' + ins.length);
   return ins[0].key;
 };
+// Ob „16-Bit Register“ und „Wortreihenfolge“ änderbar sind, hängt vom Datentyp ab (Erkundung
+// 2026-11-16: bei 16-Bit-Typen schreibgeschützt und aus). Deshalb zuerst den Datentyp setzen, dann
+// die Eigenschaften neu lesen. Schreibgeschützte werden übersprungen, wenn sie schon passen;
+// sonst bricht das Skript mit Namen und Werten ab.
+const setIoProperties = (uuid, props) => {
+  const ids = Object.keys(props).map(Number);
+  if (ids.includes(plan.modbus.dataType)) {
+    cfg.set_block_property({ uuid, property_id: plan.modbus.dataType, value: props[plan.modbus.dataType] });
+  }
+  const current = cfg.get_block_properties({ uuid }).properties;
+  for (const id of ids) {
+    if (id === plan.modbus.dataType) continue;
+    const want = props[id];
+    const p = current.find((c) => c.id === id);
+    if (p && p.editable === false) {
+      if (p.value === want) continue;
+      throw new Error('Eigenschaft ' + id + ' (' + p.name + ') ist in Config schreibgeschützt und steht auf ' + JSON.stringify(p.value) + ', gebraucht wird ' + JSON.stringify(want) + '.');
+    }
+    cfg.set_block_property({ uuid, property_id: id, value: want });
+  }
+};
+
 for (const d of plan.modbusDevices) {
   const dev = uuidOf(cfg.insert_object({ type: plan.modbus.types.device, parent_uuid: serverByAddress[d.serverAddress][0], name: d.name }));
   created[d.key] = dev;
@@ -653,9 +676,7 @@ for (const d of plan.modbusDevices) {
     const type = r.kind === 'sensor' ? plan.modbus.types.analogSensor : plan.modbus.types.analogActor;
     const io = uuidOf(cfg.insert_object({ type, parent_uuid: dev, name: r.name }));
     created[d.key + ':' + r.role] = io;
-    for (const id of Object.keys(r.properties)) {
-      cfg.set_block_property({ uuid: io, property_id: Number(id), value: r.properties[id] });
-    }
+    setIoProperties(io, r.properties);
     const inst = uuidOf(cfg.add_object_ref({ source_uuid: io, page_uuid: page }));
     const wb = created[d.wallboxKey];
     if (r.kind === 'sensor') {
