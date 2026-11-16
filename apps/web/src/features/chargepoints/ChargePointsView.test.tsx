@@ -7,7 +7,7 @@ import { useEditorStore } from '../../state/editorStore';
 import { useProjectStore } from '../../state/projectStore';
 import { sampleProject } from '../../test-fixtures';
 import { ChargePointsView } from './ChargePointsView';
-import { TEST_MODEL_ID, testLibrary } from './testLibrary';
+import { TEST_MODEL_2_ID, TEST_MODEL_ID, testLibrary } from './testLibrary';
 
 const library = testLibrary();
 const store = () => useProjectStore.getState();
@@ -116,6 +116,36 @@ describe('Ladepunkte-Ansicht', () => {
       expect(cp.maxA).toBe(20);
       expect(screen.getByText(/Standardwerte aus der Bibliothek übernommen/)).toBeTruthy();
       expect(store().past).toHaveLength(1);
+    });
+
+    it('Hersteller mit nur einem Modell: Modell gilt sofort, auch für mehrere Ladepunkte', async () => {
+      const user = userEvent.setup();
+      setup((p) => p.chargePoints.forEach((cp) => (cp.libraryModelId = 'abl/em4-twin@1')), [0, 1]);
+      await user.selectOptions(field('Hersteller'), 'Test');
+      expect(
+        project()
+          .chargePoints.slice(0, 2)
+          .map((c) => c.libraryModelId),
+      ).toEqual([TEST_MODEL_ID, TEST_MODEL_ID]);
+      expect((field('Modell') as unknown as HTMLSelectElement).value).toBe(TEST_MODEL_ID);
+      expect(store().past).toHaveLength(1);
+    });
+
+    it('Herstellerwechsel: Modell zeigt den Platzhalter, bis eines gewählt ist', async () => {
+      const user = userEvent.setup();
+      const p = sampleProject();
+      p.chargePoints.forEach((cp) => (cp.libraryModelId = 'abl/em4-twin@1'));
+      store().open(p);
+      useEditorStore.getState().select([p.chargePoints[0]!.id]);
+      render(<ChargePointsView library={testLibrary({ second: true })} />);
+      await user.selectOptions(field('Hersteller'), 'Test');
+      const model = field('Modell') as unknown as HTMLSelectElement;
+      // vorher zeigte die Auswahl „Testmodell“ an, obwohl noch das ABL-Modell galt
+      expect(model.value).toBe('');
+      expect(model.selectedOptions[0]?.textContent).toBe('Modell wählen');
+      expect(project().chargePoints[0]!.libraryModelId).toBe('abl/em4-twin@1');
+      await user.selectOptions(model, TEST_MODEL_2_ID);
+      expect(project().chargePoints[0]!.libraryModelId).toBe(TEST_MODEL_2_ID);
     });
 
     it('TODO-Modell setzt nichts und weist darauf hin', async () => {

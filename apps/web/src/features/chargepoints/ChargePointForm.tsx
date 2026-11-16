@@ -254,12 +254,16 @@ export function ChargePointForm({ project, cps, index, onNext, focusNonce }: Cha
     const known = options.some((o) => o.value === common.value);
     const unknown =
       key === 'libraryModelId' ? !index.get(common.value) : !known && common.value !== '';
+    // Steht der Wert nicht in der Liste (z. B. Modell eines anderen Herstellers), zeigt die
+    // Auswahl den Platzhalter. Sonst zeigt der Browser die erste Option an, ohne dass sie gilt,
+    // und ein Klick darauf löst keine Änderung aus.
+    const shownValue = common.mixed || (!known && !unknown) ? '' : common.value;
     return (
       <div key={key} className="cp-form__field">
         <SelectField
           name={key}
           label={FIELD_LABEL[key]}
-          value={common.mixed ? '' : common.value}
+          value={shownValue}
           error={errors[key]}
           hint={warnings[key]}
           onChange={(e) => commit(key, e.target.value)}
@@ -268,9 +272,9 @@ export function ChargePointForm({ project, cps, index, onNext, focusNonce }: Cha
             <option value="" disabled>
               {MIXED}
             </option>
-          ) : placeholder && !known ? (
+          ) : !known && (placeholder || !unknown) ? (
             <option value="" disabled>
-              {placeholder}
+              {placeholder ?? 'Bitte wählen'}
             </option>
           ) : null}
           {unknown && !common.mixed ? (
@@ -303,7 +307,14 @@ export function ChargePointForm({ project, cps, index, onNext, focusNonce }: Cha
               name="vendor"
               label={FIELD_LABEL.vendor}
               value={vendorMixed ? '' : vendorValue}
-              onChange={(e) => setVendor(e.target.value)}
+              onChange={(e) => {
+                const next = e.target.value;
+                setVendor(next);
+                // Hat der Hersteller nur ein Modell, gilt es sofort.
+                const only = index.models.filter((m) => m.model && m.model.vendor === next);
+                if (next && only.length === 1 && only[0])
+                  commit('libraryModelId', only[0].expectedId);
+              }}
             >
               {vendorMixed ? (
                 <option value="" disabled>
