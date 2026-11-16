@@ -1,5 +1,6 @@
 import Dexie, { type EntityTable } from 'dexie';
 import { loadProject, type Project } from '@lastplan/core';
+import type { LibraryPackage } from '@lastplan/wallbox-library';
 
 /** Kopfdaten für die Projektübersicht, ohne das ganze Projekt zu laden. */
 export interface ProjectSummary {
@@ -19,11 +20,22 @@ interface ProjectRow {
   doc: Project;
 }
 
+/** Zwischenspeicher des zuletzt geprüften Bibliothekspakets (ADR 0002). Schlüssel: „remote“. */
+export interface LibraryCacheRow {
+  key: string;
+  url: string;
+  fetchedAt: string;
+  library: LibraryPackage;
+}
+
 export class LastPlanDB extends Dexie {
   projects!: EntityTable<ProjectRow, 'id'>;
+  libraryCache!: EntityTable<LibraryCacheRow, 'key'>;
   constructor(name = 'lastplan') {
     super(name);
     this.version(1).stores({ projects: 'id, name, updatedAt' });
+    // Version 2: Tabelle für das nachgeladene Bibliothekspaket. Projekte bleiben unverändert.
+    this.version(2).stores({ libraryCache: 'key' });
   }
 }
 
@@ -67,4 +79,5 @@ export class ProjectRepository {
   }
 }
 
-export const repository = new ProjectRepository(new LastPlanDB());
+export const db = new LastPlanDB();
+export const repository = new ProjectRepository(db);
