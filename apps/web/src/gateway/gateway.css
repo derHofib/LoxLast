@@ -23,3 +23,10 @@
 .gw-note {
   display: block;
 }
+
+/* Config-Erkundung unter der Verbindungsprüfung (Plan 6.3) */
+.config-discovery {
+  margin-top: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-border);
+}

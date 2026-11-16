@@ -41,3 +41,29 @@ export const ConfigMcpStatusResponseSchema = z.object({
   server: z.object({ name: z.string(), version: z.string() }).nullable(),
 });
 export type ConfigMcpStatusResponse = z.infer<typeof ConfigMcpStatusResponseSchema>;
+
+/**
+ * GET /api/config/discovery – Config-Erkundung (Umsetzungsplan 6.3), nur lesend. `report` enthält
+ * die Antwort von Config weitgehend unverändert (Feldnamen aus `sdk_describe`); er ist zum
+ * Herunterladen und Auswerten gedacht, nicht zur Anzeige im Detail.
+ */
+export const ConfigDiscoveryReportSchema = z.object({
+  generatedAt: z.string(),
+  server: ConfigMcpStatusResponseSchema.shape.server,
+  project: ConfigMcpProjectSchema.nullable(),
+  summary: z.object({
+    blockTypes: z.number().int().nonnegative(),
+    modbusObjects: z.number().int().nonnegative(),
+    placedBlocks: z.number().int().nonnegative(),
+    errors: z.number().int().nonnegative(),
+  }),
+  data: z.record(z.string(), z.unknown()),
+  docs: z.record(z.string(), z.string()),
+});
+export type ConfigDiscoveryReport = z.infer<typeof ConfigDiscoveryReportSchema>;
+
+export const ConfigDiscoveryResponseSchema = z.object({
+  status: ConfigMcpStatusResponseSchema,
+  report: ConfigDiscoveryReportSchema.nullable(),
+});
+export type ConfigDiscoveryResponse = z.infer<typeof ConfigDiscoveryResponseSchema>;

@@ -103,4 +103,63 @@ describe('ConfigStatus', () => {
     expect(await screen.findByText('Gateway nicht gekoppelt')).toBeTruthy();
     expect(useGatewayStore.getState().session).toBeNull();
   });
+
+  it('Erkundung erst nach erfolgreicher Prüfung; speichert den Bericht als Datei', async () => {
+    const user = userEvent.setup();
+    paired();
+    const created: Blob[] = [];
+    vi.stubGlobal('URL', {
+      ...URL,
+      createObjectURL: (b: Blob) => {
+        created.push(b);
+        return 'blob:x';
+      },
+      revokeObjectURL: () => undefined,
+    });
+    const click = vi
+      .spyOn(HTMLAnchorElement.prototype, 'click')
+      .mockImplementation(() => undefined);
+    const report = {
+      generatedAt: '2026-11-16T10:00:00.000Z',
+      server: { name: 'loxone-config', version: '1' },
+      project: { title: 'Test', modified: false, pagesCount: 1, functionBlocksCount: 1 },
+      summary: { blockTypes: 3, modbusObjects: 2, placedBlocks: 1, errors: 0 },
+      data: {},
+      docs: {},
+    };
+    replies = [
+      { status: 200, body: status({}) },
+      { status: 200, body: { status: status({}), report } },
+      {
+        status: 200,
+        body: {
+          status: status({
+            status: 'error',
+            message: 'Erkundung fehlgeschlagen (TIMEOUT): x',
+            project: null,
+          }),
+          report: null,
+        },
+      },
+    ];
+    render(<ConfigStatus />);
+    expect(screen.queryByRole('button', { name: 'Config erkunden' })).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Verbindung prüfen' }));
+    await user.click(await screen.findByRole('button', { name: 'Config erkunden' }));
+    expect(await screen.findByText('Bericht gespeichert')).toBeTruthy();
+    expect(screen.getByText(/3 passende Bausteintypen, 2 Modbus-Objekte/)).toBeTruthy();
+    expect(fetchMock.mock.calls[1]![0]).toBe('http://127.0.0.1:8787/api/config/discovery');
+    expect(click).toHaveBeenCalledTimes(1);
+    const text = await new Promise<string>((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result));
+      reader.readAsText(created[0]!);
+    });
+    expect(JSON.parse(text)).toEqual(report);
+    await user.click(screen.getByRole('button', { name: 'Bericht erneut speichern' }));
+    expect(click).toHaveBeenCalledTimes(2);
+    await user.click(screen.getByRole('button', { name: 'Config erkunden' }));
+    expect(await screen.findByText('Erkundung fehlgeschlagen (TIMEOUT): x')).toBeTruthy();
+    click.mockRestore();
+  });
 });

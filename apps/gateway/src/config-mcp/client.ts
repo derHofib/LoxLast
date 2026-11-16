@@ -19,6 +19,8 @@ export interface ConfigMcpClient {
   describeSdk(): Promise<string>;
   /** Nur lesendes Skript (`code_query`). Liefert `value` des Skripts. */
   query(code: string, timeoutMs?: number): Promise<unknown>;
+  /** Technische Dokumentation eines Bausteintyps (`get_doc` mit `type`), als Text. */
+  getDoc(type: string): Promise<string>;
   close(): Promise<void>;
 }
 
@@ -160,6 +162,18 @@ export function createConfigMcpClient(url: URL, clientVersion: string): ConfigMc
       const args: Record<string, unknown> = { code };
       if (timeoutMs !== undefined) args['timeout_ms'] = timeoutMs;
       return parseScriptResult(await call('code_query', args));
+    },
+    async getDoc(type) {
+      const result = await call('get_doc', { type });
+      const texts = Array.isArray(result.content)
+        ? (result.content as Array<{ type?: unknown; text?: unknown }>)
+            .filter((p) => p.type === 'text' && typeof p.text === 'string')
+            .map((p) => p.text as string)
+        : [];
+      if (result.isError || texts.length === 0) {
+        throw new ConfigMcpError('BAD_RESPONSE', texts[0] ?? 'get_doc lieferte keinen Text.');
+      }
+      return texts.join('\n\n');
     },
     async close() {
       const pending = connected;

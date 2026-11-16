@@ -154,6 +154,7 @@ describe('checkConfigMcp mit Fehlern beim Aufruf', () => {
     serverInfo: () => Promise.resolve({ name: 'n', version: 'v' }),
     describeSdk: () => Promise.resolve(FAKE_DECLARATIONS),
     query: () => Promise.resolve(PROJECT),
+    getDoc: () => Promise.resolve(''),
     close: () => Promise.resolve(),
     ...over,
   });
