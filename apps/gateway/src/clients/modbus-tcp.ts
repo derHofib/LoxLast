@@ -14,8 +14,7 @@ import {
   writeSingleRequestPdu,
   type MbapFrame,
 } from './modbus-frame';
-import type {
-  ModbusError} from './modbus-errors';
+import type { ModbusError } from './modbus-errors';
 import {
   ModbusConnectionError,
   ModbusExceptionError,

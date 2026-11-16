@@ -62,6 +62,9 @@ importers:
       '@lastplan/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol
+      '@lastplan/wallbox-library':
+        specifier: workspace:*
+        version: link:../../packages/wallbox-library
       better-sqlite3:
         specifier: ^13.2.0
         version: 13.2.0

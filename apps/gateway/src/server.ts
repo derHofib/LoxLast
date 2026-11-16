@@ -5,6 +5,7 @@ import websocket from '@fastify/websocket';
 import {
   ChangelogQuerySchema,
   ClientMessageSchema,
+  DeviceTestRequestSchema,
   MiniserverConfigRequestSchema,
   PairRequestSchema,
   ProjectIdSchema,
@@ -19,8 +20,12 @@ import {
   type ServerMessage,
   type TokenResponse,
 } from '@lastplan/protocol';
+import { checkModel, type WallboxModel } from '@lastplan/wallbox-library';
 import type { Changelog } from './changelog';
-import type { MiniserverClient } from './clients/types';
+import { tcpProbe } from './clients/tcp-probe';
+import type { MiniserverClient, ModbusClient } from './clients/types';
+import { runDeviceTest } from './device-test';
+import type { ModelLibrary } from './library';
 import type { CredentialStore } from './credential-store';
 import type { IssuedToken, PairingService } from './pairing';
 
@@ -34,6 +39,14 @@ export interface ServerDeps {
   changelog: Changelog;
   /** Fehlt der Client (noch keine echte Implementierung), meldet die API „getrennt“. */
   miniserver?: MiniserverClient;
+  /** Modbus-Client für den Geräte-Test. Fehlt er, antwortet `/api/devices/test` mit 501. */
+  modbus?: ModbusClient;
+  /** Wallbox-Bibliothek des Gateways (Quelle der Register, ADR 0012). */
+  library?: ModelLibrary;
+  /** TCP-Erreichbarkeit ohne Modbus-Anfrage; Standard: `tcpProbe`. */
+  probe?: (host: string, port: number) => Promise<number>;
+  /** Geräte-Tests pro Minute und IP. Standard 30. */
+  deviceTestsPerMinute?: number;
   /** Anfragen pro Minute und IP (global). Standard 120. */
   rateLimitPerMinute?: number;
   /** Pairing-Versuche pro Minute und IP. Standard 5. */
@@ -225,7 +238,70 @@ export async function buildServer(deps: ServerDeps): Promise<FastifyInstance> {
         err('not_implemented', 'Noch nicht verfügbar: benötigt Test-Wallbox bzw. Test-Miniserver.'),
       );
   };
-  app.post('/api/devices/test', { preHandler: requireAuth }, notImplemented);
+  // Geräte-Test (Kap. 8.1/8.2, ADR 0012): nur lesen, Register nur aus der Bibliothek.
+  const modbus = deps.modbus;
+  if (modbus) {
+    if (modbus.close) app.addHook('onClose', async () => modbus.close?.());
+    app.post(
+      '/api/devices/test',
+      {
+        preHandler: requireAuth,
+        config: { rateLimit: { max: deps.deviceTestsPerMinute ?? 30, timeWindow: '1 minute' } },
+      },
+      async (req, reply) => {
+        const body = DeviceTestRequestSchema.safeParse(req.body);
+        if (!body.success) {
+          const issue = body.error.issues[0];
+          return reply
+            .code(400)
+            .send(
+              err(
+                'invalid_request',
+                `Eingabe ungültig${issue ? ` (${issue.path.join('.')}: ${issue.message})` : ''}.`,
+              ),
+            );
+        }
+        const { endpoint, libraryModelId } = body.data;
+        let model: WallboxModel | undefined;
+        let modelSource: 'request' | 'gateway' | null = null;
+        if (body.data.model) {
+          const check = checkModel(body.data.model);
+          if (check.status === 'invalid' || !check.model) {
+            const first = check.issues[0];
+            return reply
+              .code(400)
+              .send(
+                err(
+                  'invalid_request',
+                  `Mitgeschickte Modelldatei ist ungültig${first ? ` (${first.path} ${first.message})` : ''}.`,
+                ),
+              );
+          }
+          if (check.model.id !== libraryModelId) {
+            return reply
+              .code(400)
+              .send(
+                err(
+                  'invalid_request',
+                  `Modelldatei „${check.model.id}“ passt nicht zu „${libraryModelId}“.`,
+                ),
+              );
+          }
+          model = check.model;
+          modelSource = 'request';
+        } else {
+          model = deps.library?.get(libraryModelId);
+          if (model) modelSource = 'gateway';
+        }
+        return runDeviceTest(
+          { endpoint, modelId: libraryModelId, model, modelSource },
+          { modbus, probe: deps.probe ?? ((host, port) => tcpProbe(host, port)) },
+        );
+      },
+    );
+  } else {
+    app.post('/api/devices/test', { preHandler: requireAuth }, notImplemented);
+  }
   app.get('/api/projects/:id/live', { preHandler: requireAuth }, notImplemented);
   app.post('/api/projects/:id/parameters', { preHandler: requireAuth }, notImplemented);
   app.post(
