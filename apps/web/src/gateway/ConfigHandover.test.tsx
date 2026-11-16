@@ -77,7 +77,7 @@ describe('ConfigHandover', () => {
   it('Vorschau, Anlegen, Ergebnis mit Nacharbeit, Rückgängig und Speichern', async () => {
     const user = userEvent.setup();
     render(<ConfigHandover serverVersion="1.0.1" />);
-    expect(screen.getByText(/Seite „LastPlan – Testanlage \[lastplan:/)).toBeTruthy();
+    expect(screen.getByText(/beginnend mit „Standort – Testanlage \[lastplan:/)).toBeTruthy();
     expect(screen.getByRole('list', { name: 'Voraussetzungen' }).textContent).toContain(
       '192.168.10.21:502',
     );
@@ -109,7 +109,7 @@ describe('ConfigHandover', () => {
     const sent = body(0) as {
       plan: { pageName: string; loadManagers: unknown[]; replace: boolean };
     };
-    expect(sent.plan.pageName).toMatch(/^LastPlan – Testanlage \[lastplan:/);
+    expect(sent.plan.pageName).toMatch(/^Standort – Testanlage \[lastplan:/);
     expect(sent.plan.replace).toBe(false);
     expect(sent.plan.loadManagers).toHaveLength(2);
     expect(sent.plan).not.toHaveProperty('manualSteps');
@@ -165,7 +165,7 @@ describe('ConfigHandover', () => {
       }),
     ];
     await user.click(screen.getByRole('button', { name: 'In Config anlegen' }));
-    expect(await screen.findByText('Seite gibt es schon in Config')).toBeTruthy();
+    expect(await screen.findByText('Seiten gibt es schon in Config')).toBeTruthy();
     expect(
       screen.getByText(/Struktur des Projekts ist seit dieser Übergabe unverändert/),
     ).toBeTruthy();
@@ -186,8 +186,8 @@ describe('ConfigHandover', () => {
         validation: { valid: true, issues: [] },
       }),
     ];
-    await user.click(screen.getByRole('button', { name: 'Seite ersetzen' }));
-    expect(await screen.findByText(/Alte Seite ersetzt, 7 Objekte entfernt/)).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: 'Seiten ersetzen' }));
+    expect(await screen.findByText(/Alte Seiten ersetzt, 7 Objekte entfernt/)).toBeTruthy();
     expect((body(2) as { plan: { replace: boolean } }).plan.replace).toBe(true);
     const history = useProjectStore.getState().project!.exportHistory;
     expect(history).toHaveLength(2);

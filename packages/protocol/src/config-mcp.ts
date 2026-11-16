@@ -94,23 +94,42 @@ export const ConfigHandoverPlanSchema = z.object({
       periphery: z.array(ConfigUuidSchema).max(10000),
     })
     .default({ pages: [], periphery: [] }),
+  /** Seiten in Anlege-Reihenfolge; Schlüssel = Ebene (site, cluster:<id>, group:<id>). */
+  pages: z
+    .array(z.object({ key: PlanKeySchema, name: PlanTitleSchema }))
+    .min(1)
+    .max(2000),
   loadManagers: z
     .array(
       z.object({
         key: PlanKeySchema,
         title: PlanTitleSchema,
         maxKw: KwSchema,
+        page: PlanKeySchema,
         parent: ParentSchema.optional(),
       }),
     )
     .min(1)
     .max(500),
   wallboxManagers: z
-    .array(z.object({ key: PlanKeySchema, title: PlanTitleSchema, parent: ParentSchema }))
+    .array(
+      z.object({
+        key: PlanKeySchema,
+        title: PlanTitleSchema,
+        parent: ParentSchema,
+        page: PlanKeySchema,
+      }),
+    )
     .max(2000),
   wallboxes: z
     .array(
-      z.object({ key: PlanKeySchema, title: PlanTitleSchema, maxKw: KwSchema, minKw: KwSchema }),
+      z.object({
+        key: PlanKeySchema,
+        title: PlanTitleSchema,
+        maxKw: KwSchema,
+        minKw: KwSchema,
+        page: PlanKeySchema,
+      }),
     )
     .max(5000),
   virtualInputs: z
@@ -119,6 +138,7 @@ export const ConfigHandoverPlanSchema = z.object({
         key: PlanKeySchema,
         name: PlanTitleSchema,
         target: z.object({ key: PlanKeySchema, connector: z.enum(['maxP', 'Pmax']) }),
+        page: PlanKeySchema,
       }),
     )
     .max(500),

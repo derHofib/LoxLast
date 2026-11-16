@@ -58,6 +58,7 @@ Loxone Config bringt inzwischen einen eigenen MCP-Server mit, den „LOXONE Conf
    - Ersetzen entfernt mit `remove_block` zuerst die Peripherie des letzten Laufs (virtuelle Eingänge, Modbus-Geräte), dann jede Seite Baustein für Baustein und zuletzt die leere Seite (laut `sdk_describe` lässt sich nur eine leere Seite entfernen). Die UUIDs des letzten Laufs, auch Folgeseiten aus `arrange_page`, stehen im `ExportRecord`. Danach legt der Lauf neu an. Alles liegt in derselben Undo-Gruppe.
    - Was in den Dialogen eingetragen war (Lasttabelle, Wallbox-Zuordnung), geht beim Ersetzen verloren. Die Oberfläche sagt das vor dem Ersetzen.
    - Gibt es virtuelle Eingänge oder Modbus-Geräte mit geplanten Namen, die nicht aus dem letzten Lauf stammen, bricht der Lauf vor jeder Änderung ab, statt Doppelte anzulegen.
+   - **Seitenaufbau** (Wunsch Auftraggeber, 2026-11-16): Jede Ebene bekommt eine eigene Seite, angelegt in dieser Reihenfolge: Standort (mit Kennung), je Cluster eine Seite („TG“), dahinter je Gruppe eine Seite („TG · G1 Mieter“), dann die Unter-Cluster („TG › Strang“, „TG › Strang · G1 Gäste“). Nur die Standort-Seite trägt die Kennung, die übrigen Seiten erkennt ein späterer Lauf über die UUIDs im `ExportRecord`. Verbindungen über Seitengrenzen legt das Skript mit `connect_blocks` und `reference: true` an. TODO(verify) im nächsten Testlauf: ob Config die Seiten in Anlege-Reihenfolge zeigt (ein Befehl zum Sortieren fehlt im SDK) und ob die Referenz-Verbindungen wie erwartet erscheinen.
 
 ## Alternativen
 

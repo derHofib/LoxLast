@@ -25,14 +25,21 @@ const PLAN: ConfigHandoverPlan = {
   pageMatch: '[lastplan:0123456789ab:',
   replace: false,
   previous: { pages: [], periphery: [] },
-  loadManagers: [{ key: 'site', title: 'LM_Standort', maxKw: 117.3 }],
-  wallboxManagers: [{ key: 'group:g1', title: 'LIM_A_B', parent: { key: 'site', slot: 1 } }],
-  wallboxes: [{ key: 'cp:c1', title: 'WB_LP01', maxKw: 11.04, minKw: 4.14 }],
+  pages: [
+    { key: 'site', name: 'Standort – Test [lastplan:0123456789ab:1a2b3c4d]' },
+    { key: 'group:g1', name: 'A · G1 B' },
+  ],
+  loadManagers: [{ key: 'site', title: 'LM_Standort', maxKw: 117.3, page: 'site' }],
+  wallboxManagers: [
+    { key: 'group:g1', title: 'LIM_A_B', parent: { key: 'site', slot: 1 }, page: 'group:g1' },
+  ],
+  wallboxes: [{ key: 'cp:c1', title: 'WB_LP01', maxKw: 11.04, minKw: 4.14, page: 'group:g1' }],
   virtualInputs: [
     {
       key: 'vi:site',
       name: 'LM_Standort Limit (kW) – 170 A',
       target: { key: 'site', connector: 'maxP' },
+      page: 'site',
     },
   ],
   modbusDevices: [],
