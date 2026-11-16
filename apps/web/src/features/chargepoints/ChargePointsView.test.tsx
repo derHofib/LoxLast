@@ -120,15 +120,13 @@ describe('Ladepunkte-Ansicht', () => {
 
     it('Hersteller mit nur einem Modell: Modell gilt sofort, auch für mehrere Ladepunkte', async () => {
       const user = userEvent.setup();
-      setup(
-        (p) => p.chargePoints.forEach((cp) => (cp.libraryModelId = 'abl/em4-twin@1')),
-        [0, 1],
-      );
+      setup((p) => p.chargePoints.forEach((cp) => (cp.libraryModelId = 'abl/em4-twin@1')), [0, 1]);
       await user.selectOptions(field('Hersteller'), 'Test');
-      expect(project().chargePoints.slice(0, 2).map((c) => c.libraryModelId)).toEqual([
-        TEST_MODEL_ID,
-        TEST_MODEL_ID,
-      ]);
+      expect(
+        project()
+          .chargePoints.slice(0, 2)
+          .map((c) => c.libraryModelId),
+      ).toEqual([TEST_MODEL_ID, TEST_MODEL_ID]);
       expect((field('Modell') as unknown as HTMLSelectElement).value).toBe(TEST_MODEL_ID);
       expect(store().past).toHaveLength(1);
     });

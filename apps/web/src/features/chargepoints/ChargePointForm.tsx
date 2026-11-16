@@ -312,7 +312,8 @@ export function ChargePointForm({ project, cps, index, onNext, focusNonce }: Cha
                 setVendor(next);
                 // Hat der Hersteller nur ein Modell, gilt es sofort.
                 const only = index.models.filter((m) => m.model && m.model.vendor === next);
-                if (next && only.length === 1 && only[0]) commit('libraryModelId', only[0].expectedId);
+                if (next && only.length === 1 && only[0])
+                  commit('libraryModelId', only[0].expectedId);
               }}
             >
               {vendorMixed ? (
