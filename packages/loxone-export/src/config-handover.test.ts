@@ -420,7 +420,7 @@ describe('renderHandoverScript', () => {
   it('Modbus: Gerät, Sensoren und Aktor mit Eigenschaften aus der Bibliothek', () => {
     const plan = buildHandoverPlan(sample(), MODELS);
     expect(plan.prerequisites).toEqual([
-      'Modbusserver mit Adresse 192.168.10.21:502 in Config anlegen (LastPlan kann ihn nicht einfügen).',
+      'Modbusserver für 192.168.10.21:502 in Config anlegen (LastPlan kann ihn nicht einfügen). Adresse leer lassen, dann trägt LastPlan sie ein, oder selbst eintragen.',
     ]);
     const lp03 = plan.modbusDevices.find((d) => d.name === 'MB_LP03')!;
     expect(lp03).toMatchObject({ serverAddress: '192.168.10.21:502', unitId: 1 });
@@ -483,12 +483,32 @@ describe('renderHandoverScript', () => {
   it('Modbus: bricht ab, wenn Modbusserver fehlt, doppelt ist oder der Aktor-Eingang unklar', () => {
     const plan = buildHandoverPlan(sample(), MODELS);
     const missing = fakeCfg(1, ['10.0.0.1:502']);
-    expect(() => run(plan, missing.cfg)).toThrow(/Modbusserver fehlt in Config: 192.168.10.21:502/);
+    expect(() => run(plan, missing.cfg)).toThrow(
+      'Modbusserver fehlt in Config: 192.168.10.21:502. Es fehlen 1 Modbusserver (mit dieser Adresse oder mit leerer Adresse). Gefunden (Name „Adresse“): Server 0 „10.0.0.1:502“',
+    );
+    const none = fakeCfg(1, []);
+    expect(() => run(plan, none.cfg)).toThrow('Gefunden (Name „Adresse“): keiner');
     expect(missing.calls.some(([m]) => m === 'add_page')).toBe(false);
     const twice = fakeCfg(1, ['192.168.10.21:502', '192.168.10.21:502']);
     expect(() => run(plan, twice.cfg)).toThrow(/mehrfach/);
     const unclear = fakeCfg(1, undefined, []);
     expect(() => run(plan, unclear.cfg)).toThrow(/nicht eindeutig/);
+  });
+
+  it('Modbus: leerer Modbusserver bekommt die fehlende Adresse', () => {
+    const plan = buildHandoverPlan(sample(), MODELS);
+    const { cfg, calls } = fakeCfg(1, ['10.0.0.1:502', '']);
+    const res = run(plan, cfg);
+    const sets = calls.filter(([m, p]) => m === 'set_block_property' && p['property_id'] === 1000);
+    expect(sets).toEqual([
+      ['set_block_property', { uuid: 'srv1', property_id: 1000, value: '192.168.10.21:502' }],
+    ]);
+    expect(res.created['server:192.168.10.21:502']).toBe('srv1');
+    // Adresse wird erst nach der Vorprüfung gesetzt, vor dem Anlegen der Seite
+    const order = calls.map(([m]) => m);
+    expect(order.indexOf('set_block_property')).toBeLessThan(order.indexOf('add_page'));
+    const devices = calls.filter(([m, p]) => m === 'insert_object' && p['type'] === 'ModbusDev');
+    expect(devices.every(([, p]) => p['parent_uuid'] === 'srv1')).toBe(true);
   });
 
   it('Modbus: TODO und unpassende Angaben in der Bibliothek sperren', () => {

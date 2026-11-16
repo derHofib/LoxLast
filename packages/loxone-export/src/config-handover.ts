@@ -393,7 +393,8 @@ export function buildHandoverPlan(
   }
   const servers = [...new Set(modbusDevices.map((d) => d.serverAddress))];
   const prerequisites = servers.map(
-    (a) => `Modbusserver mit Adresse ${a} in Config anlegen (LastPlan kann ihn nicht einfügen).`,
+    (a) =>
+      `Modbusserver für ${a} in Config anlegen (LastPlan kann ihn nicht einfügen). Adresse leer lassen, dann trägt LastPlan sie ein, oder selbst eintragen.`,
   );
 
   return {
@@ -556,13 +557,19 @@ if (plan.virtualInputs.length > 0) {
   if (!virtualParent) throw new Error('Kein Ort für virtuelle Eingänge unter dem Miniserver „' + miniserver.name + '“ gefunden.');
 }
 
-// Modbusserver über ihre Adresse finden (vom Nutzer angelegt).
+// Modbusserver über ihre Adresse finden (vom Nutzer angelegt). Fehlt eine Adresse, bekommt sie
+// ein vom Nutzer angelegter Modbusserver mit leerer Adresse (Eigenschaft 1000 ist änderbar).
 const serverByAddress = {};
+const serversSeen = [];
+const emptyServers = [];
 const findServers = (n) => {
   if (n.uuid && n.type === plan.modbus.types.server) {
     const props = cfg.get_block_properties({ uuid: n.uuid }).properties;
     const a = props.find((p) => p.id === plan.modbus.serverAddress);
-    if (a && typeof a.value === 'string') (serverByAddress[a.value.trim()] = serverByAddress[a.value.trim()] || []).push(n.uuid);
+    const value = a && typeof a.value === 'string' ? a.value.trim() : '';
+    serversSeen.push(n.name + ' „' + value + '“');
+    if (value) (serverByAddress[value] = serverByAddress[value] || []).push(n.uuid);
+    else emptyServers.push(n.uuid);
   }
   for (const c of n.children || []) findServers(c);
 };
@@ -570,8 +577,17 @@ if (plan.modbusDevices.length > 0) for (const r of tree.roots) findServers(r);
 const wanted = [...new Set(plan.modbusDevices.map((d) => d.serverAddress))];
 const missing = wanted.filter((a) => !serverByAddress[a]);
 const twice = wanted.filter((a) => serverByAddress[a] && serverByAddress[a].length > 1);
-if (missing.length > 0) throw new Error('Modbusserver fehlt in Config: ' + missing.join(', '));
+if (missing.length > emptyServers.length) {
+  throw new Error('Modbusserver fehlt in Config: ' + missing.join(', ') + '. Es fehlen ' + (missing.length - emptyServers.length) + ' Modbusserver (mit dieser Adresse oder mit leerer Adresse). Gefunden (Name „Adresse“): ' + (serversSeen.join('; ') || 'keiner'));
+}
 if (twice.length > 0) throw new Error('Modbusserver mehrfach mit gleicher Adresse: ' + twice.join(', '));
+
+missing.forEach((address, i) => {
+  const uuid = emptyServers[i];
+  cfg.set_block_property({ uuid, property_id: plan.modbus.serverAddress, value: address });
+  serverByAddress[address] = [uuid];
+  created['server:' + address] = uuid;
+});
 
 const page = uuidOf(cfg.add_page({ name: plan.pageName, context_uuid: miniserver.uuid }));
 created.page = page;
