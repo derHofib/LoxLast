@@ -392,10 +392,12 @@ describe('renderHandoverScript', () => {
         1312: false,
         1319: 0.001,
         1040: 'kW',
+        1307: 1,
       },
     });
     // Zählerstand: eigene Byte-Reihenfolge big-endian.
     expect(byRole['energy']?.properties).toMatchObject({
+      1307: 2,
       1309: 4,
       1311: false,
       1312: false,

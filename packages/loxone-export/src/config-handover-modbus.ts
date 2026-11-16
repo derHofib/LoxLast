@@ -41,7 +41,11 @@ export const MODBUS_PROPERTIES = {
   inputValue2: 1318,
   targetValue2: 1319,
   unit: 1040,
+  pollSeconds: 1307,
 } as const;
+
+/** Abfragezyklus der Sensoren in s (Vorgabe des Auftraggebers 2026-11-16: 1–2 s). */
+export const POLL_SECONDS = { power: 1, energy: 2 } as const;
 
 /** Optionsindex von „Befehl“ (1308) je Funktionscode. */
 const SENSOR_COMMAND: Record<number, number> = { 3: 2, 4: 3 };
@@ -151,6 +155,7 @@ export function planModbusDevice(
     connector: string,
     toUnit: Record<string, number>,
     unit: string,
+    pollSeconds: number,
   ): PlannedRegister | undefined => {
     const r = reg(role);
     if (!r) return undefined;
@@ -173,6 +178,7 @@ export function planModbusDevice(
         [MODBUS_PROPERTIES.inputValue2]: 1,
         [MODBUS_PROPERTIES.targetValue2]: floor((r.scale as number) * factor),
         [MODBUS_PROPERTIES.unit]: unit,
+        [MODBUS_PROPERTIES.pollSeconds]: pollSeconds,
       },
     };
   };
@@ -203,8 +209,8 @@ export function planModbusDevice(
   };
 
   const registers = [
-    sensor('power', 'Leistung', 'power', POWER_TO_KW, 'kW'),
-    sensor('energy', 'Zählerstand', 'energy', ENERGY_TO_KWH, 'kWh'),
+    sensor('power', 'Leistung', 'power', POWER_TO_KW, 'kW', POLL_SECONDS.power),
+    sensor('energy', 'Zählerstand', 'energy', ENERGY_TO_KWH, 'kWh', POLL_SECONDS.energy),
     actor(),
   ].filter((r): r is PlannedRegister => r !== undefined);
 

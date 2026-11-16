@@ -395,15 +395,6 @@ export function buildHandoverPlan(
   const prerequisites = servers.map(
     (a) => `Modbusserver mit Adresse ${a} in Config anlegen (LastPlan kann ihn nicht einfügen).`,
   );
-  if (modbusDevices.length > 0) {
-    manualSteps.push({
-      block: 'modbus',
-      title: 'Modbus-Sensoren',
-      items: [
-        'Abfragezyklus der Sensoren prüfen und passend zur Regelung einstellen (Config-Standard 300 s).',
-      ],
-    });
-  }
 
   return {
     pageName: `LastPlan – ${project.name}`,
