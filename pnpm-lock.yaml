@@ -96,6 +96,9 @@ importers:
       '@lastplan/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@lastplan/protocol':
+        specifier: workspace:*
+        version: link:../../packages/protocol
       '@lastplan/ui':
         specifier: workspace:*
         version: link:../../packages/ui

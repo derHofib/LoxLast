@@ -1,0 +1,25 @@
+/* Verbindungstest und Gateway-Kopplung (Infos-Spalte der Ladepunkte-Ansicht) */
+.gw-pair {
+  display: grid;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+}
+
+.gw-pair .lp-btn {
+  justify-self: start;
+}
+
+.gw-reading {
+  display: contents;
+}
+
+.gw-session {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.gw-note {
+  display: block;
+}

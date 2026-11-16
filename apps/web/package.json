@@ -12,6 +12,7 @@
   "dependencies": {
     "@fontsource/source-sans-3": "^5.2.0",
     "@lastplan/core": "workspace:*",
+    "@lastplan/protocol": "workspace:*",
     "@lastplan/ui": "workspace:*",
     "@lastplan/wallbox-library": "workspace:*",
     "@xyflow/react": "^12.12.1",
