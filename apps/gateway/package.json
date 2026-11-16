@@ -16,8 +16,10 @@
     "@fastify/websocket": "^11.3.7",
     "@lastplan/protocol": "workspace:*",
     "@lastplan/wallbox-library": "workspace:*",
+    "@modelcontextprotocol/sdk": "^1.32.2",
     "better-sqlite3": "^13.2.0",
-    "fastify": "^5.6.0"
+    "fastify": "^5.6.0",
+    "zod": "^4.1.0"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^9.6.0",
