@@ -63,6 +63,7 @@ Loxone Config bringt inzwischen einen eigenen MCP-Server mit, den „LOXONE Conf
 ## Folgen
 
 - MS6 und MS7 werden zu einem Meilenstein „Übergabe an Config“ zusammengelegt. Die Export-Ansicht aus PR #11, der `ExportRecord` und `structureHash` bleiben erhalten. Aus der `ExportGenerator`-Registry wird ein Skript-Erzeuger.
+- **Betrieb mit VM (Fall des Auftraggebers):** Das Gateway läuft **in der Windows-VM**, neben Config. Die Web-App auf dem Mac koppelt sich wie bisher per Pairing an das Gateway (ADR 0009). Den MCP-Port per Portweiterleitung aus der VM heraus zu öffnen, lehnen wir ab: Der Endpunkt hat keine dokumentierte Anmeldung, und jeder im Netz könnte damit das Projekt ändern.
 - **Neue Voraussetzungen:**
   - Config mit aktiviertem „Config MCP“ läuft auf einem Rechner, auf dem auch das Gateway läuft (Windows).
   - Für die Entwicklung braucht es ein **Testprojekt** in Config, keine Kundenanlage.
@@ -81,7 +82,7 @@ Loxone Config bringt inzwischen einen eigenen MCP-Server mit, den „LOXONE Conf
    - `get_block_properties` und `get_property_options` des Servers, des Modbus-Geräts und eines Analogsensors (Eigenschafts-IDs, Optionen für Befehl und Datentyp).
    - `get_insertable_types({ parent_uuid: <Server> })`.
 3. Was liefern `get_actions()` und `get_project()`? Darin könnten Versionsangaben stecken.
-4. Läuft der Gateway-Rechner auf Windows mit Config, oder läuft Config in einer VM? Davon hängt ab, wie `127.0.0.1:57707` erreichbar ist.
+4. Erreichbarkeit: Der Endpunkt lauscht nur auf `127.0.0.1` im Windows-System. Beim Auftraggeber läuft Config in einer Windows-VM auf dem Mac (Auskunft 2026-11-16). TODO(verify): ob das Gateway unter Windows läuft (Node 22, Pfade, Dienststart).
 
 ## Quellen
 
