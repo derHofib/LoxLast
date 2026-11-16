@@ -530,7 +530,12 @@ ${SCRIPT_BODY}`;
 // (kein Katalogtyp, gleicher Test); sie bleiben Voraussetzung.
 const SCRIPT_BODY = String.raw`
 const created = {};
-const uuidOf = (r) => (r && r.block && r.block.uuid) || (r && r.object && r.object.uuid) || (r && r.uuid);
+// Antwortformen laut Test 2026-11-16: add_page → { page }, insert_object → { object }, add_block → { block }.
+const uuidOf = (r) => {
+  const id = (r && r.block && r.block.uuid) || (r && r.object && r.object.uuid) || (r && r.page && r.page.uuid) || (r && r.uuid);
+  if (!id) throw new Error('Antwort ohne UUID: ' + JSON.stringify(r).slice(0, 200));
+  return id;
+};
 
 const tree = cfg.get_tree({});
 let miniservers = [];

@@ -283,7 +283,11 @@ function fakeCfg(
       },
     })),
     add_page: rec('add_page', () => ({ page: { uuid: 'page' }, success: true })),
-    add_block: rec('add_block', () => ({ block: { uuid: next() }, success: true })),
+    add_block: rec('add_block', (p) => {
+      // wie Config: ohne Seite MISSING_PARAM
+      if (!p['page_uuid']) throw new Error("Missing 'pageUuid' parameter");
+      return { block: { uuid: next() }, success: true };
+    }),
     set_block_property: rec('set_block_property'),
     connect_blocks: rec('connect_blocks'),
     insert_object: rec('insert_object', () => ({ object: { uuid: next() }, success: true })),
@@ -396,6 +400,13 @@ describe('renderHandoverScript', () => {
     const { cfg, calls } = fakeCfg(1, undefined, undefined, { msType: 'Unbekannt' });
     run(plan, cfg);
     expect(calls.find(([m]) => m === 'add_page')?.[1]).toMatchObject({ context_uuid: 'ms0' });
+  });
+
+  it('Antwort ohne UUID bricht verständlich ab', () => {
+    const plan = buildHandoverPlan(sample(), MODELS);
+    const { cfg } = fakeCfg();
+    cfg.add_page = () => ({ success: true }) as never;
+    expect(() => run(plan, cfg)).toThrow('Antwort ohne UUID: {"success":true}');
   });
 
   it('Miniserver vom Typ LoxLIVE', () => {
