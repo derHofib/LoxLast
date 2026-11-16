@@ -6,3 +6,5 @@
  * TODO(verify): Beispielvorlage aus Loxone Config und .Loxone-Beispieldateien anfordern.
  */
 export const LOXONE_EXPORT_STATUS = 'not-implemented' as const;
+
+export * from './generator';

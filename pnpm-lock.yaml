@@ -93,6 +93,9 @@ importers:
       '@lastplan/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@lastplan/loxone-export':
+        specifier: workspace:*
+        version: link:../../packages/loxone-export
       '@lastplan/ui':
         specifier: workspace:*
         version: link:../../packages/ui
