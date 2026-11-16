@@ -54,7 +54,7 @@
 }
 .export-summary {
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 40%);
   gap: var(--space-1) var(--space-3);
   margin: 0 0 var(--space-4);
 }
