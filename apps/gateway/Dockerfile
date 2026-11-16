@@ -10,10 +10,12 @@ RUN pnpm --filter @lastplan/gateway build
 RUN pnpm --filter @lastplan/gateway deploy --prod /out
 
 FROM node:22-bookworm-slim
-ENV NODE_ENV=production GATEWAY_DATA_DIR=/data
+ENV NODE_ENV=production GATEWAY_DATA_DIR=/data GATEWAY_LIBRARY_DIR=/app/library
 WORKDIR /app
 COPY --from=build /out/node_modules ./node_modules
 COPY --from=build /repo/apps/gateway/dist ./dist
+# Wallbox-Bibliothek: einzige Quelle der Register für den Geräte-Test (ADR 0012)
+COPY --from=build /repo/packages/wallbox-library/models ./library
 RUN mkdir /data && chown node:node /data
 USER node
 VOLUME /data

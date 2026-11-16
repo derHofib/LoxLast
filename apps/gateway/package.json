@@ -2,7 +2,7 @@
   "name": "@lastplan/gateway",
   "version": "0.1.0",
   "private": true,
-  "description": "Gateway für Modbus/HTTP-Geräte und Miniserver-Anbindung (ab Meilenstein 8)",
+  "description": "Gateway für Modbus-Geräte (Verbindungstest) und Miniserver-Anbindung (Meilenstein 8)",
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/main.ts",
@@ -15,6 +15,7 @@
     "@fastify/rate-limit": "^11.2.2",
     "@fastify/websocket": "^11.3.7",
     "@lastplan/protocol": "workspace:*",
+    "@lastplan/wallbox-library": "workspace:*",
     "better-sqlite3": "^13.2.0",
     "fastify": "^5.6.0"
   },

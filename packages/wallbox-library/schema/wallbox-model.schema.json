@@ -187,7 +187,7 @@
         "byteOrder": {
           "anyOf": [
             {
-              "enum": ["big-endian", "little-endian", "word-swapped"]
+              "$ref": "#/$defs/byteOrder"
             },
             {
               "$ref": "#/$defs/todo"
@@ -303,6 +303,10 @@
         },
         "source": {
           "$ref": "#/$defs/source"
+        },
+        "byteOrder": {
+          "description": "Abweichende Byte-Reihenfolge nur für dieses Register; sonst gilt modbus.byteOrder.",
+          "$ref": "#/$defs/byteOrder"
         }
       }
     },
@@ -353,6 +357,10 @@
         "type": "string",
         "pattern": "^registers\\.[A-Za-z0-9]+$"
       }
+    },
+    "byteOrder": {
+      "description": "Reihenfolge der Bytes bei Werten über mehrere Register. big-endian = ABCD, word-swapped = CDAB, byte-swapped = BADC, little-endian = DCBA (A = höchstwertiges Byte). Bei 16 Bit: big-endian/word-swapped = AB, byte-swapped/little-endian = BA.",
+      "enum": ["big-endian", "word-swapped", "byte-swapped", "little-endian"]
     }
   }
 }

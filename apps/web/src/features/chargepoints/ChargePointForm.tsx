@@ -11,6 +11,7 @@ import {
   TextField,
 } from '@lastplan/ui';
 import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { DeviceTestButton } from '../../gateway/DeviceTest';
 import { confirmChargePointFieldsCommand, updateChargePointsCommand } from '../../state/commands';
 import { useProjectStore } from '../../state/projectStore';
 import {
@@ -52,7 +53,6 @@ export function ChargePointForm({ project, cps, index, onNext, focusNonce }: Cha
   const [notice, setNotice] = useState<string>('');
   const [vendor, setVendor] = useState<string | undefined>(undefined);
   const root = useRef<HTMLDivElement>(null);
-  const status = useId();
 
   const multi = cps.length > 1;
   const ids = cps.map((c) => c.id);
@@ -393,13 +393,11 @@ export function ChargePointForm({ project, cps, index, onNext, focusNonce }: Cha
               <Button variant="primary" onClick={saveAndNext}>
                 Speichern &amp; nächster LP
               </Button>
-              <Button disabled aria-describedby={`${status}-test`}>
-                Verbindung testen
-              </Button>
+              <DeviceTestButton
+                cp={multi ? undefined : first}
+                model={index.get(first.libraryModelId)?.model}
+              />
             </div>
-            <p id={`${status}-test`} className="cp-form__note">
-              Benötigt das Gateway (Meilenstein 8)
-            </p>
           </div>
         }
       >

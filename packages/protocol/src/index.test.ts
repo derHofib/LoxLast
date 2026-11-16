@@ -3,6 +3,7 @@ import {
   ChangelogQuerySchema,
   ClientMessageSchema,
   DeviceTestRequestSchema,
+  DeviceTestResponseSchema,
   HostSchema,
   NetworkEndpointSchema,
   ParametersRequestSchema,
@@ -59,6 +60,39 @@ describe('Netzwerk-Validierung', () => {
       DeviceTestRequestSchema.safeParse({ ...base, libraryModelId: 'abl/em4-twin@1' }).success,
     ).toBe(true);
     expect(DeviceTestRequestSchema.safeParse({ ...base, libraryModelId: '../x' }).success).toBe(
+      false,
+    );
+  });
+  it('Geräte-Test: Modelldatei optional, Antwort mit Ergebnis und Ablesungen', () => {
+    const base = { endpoint: { ip: '10.0.0.5', port: 502 }, libraryModelId: 'x/y@1' };
+    expect(DeviceTestRequestSchema.safeParse({ ...base, model: { id: 'x/y@1' } }).success).toBe(
+      true,
+    );
+    expect(DeviceTestRequestSchema.safeParse({ ...base, model: 'x' }).success).toBe(false);
+    const res = {
+      outcome: 'ok',
+      reachable: true,
+      latencyMs: 18,
+      values: { currentL1: 16 },
+      firmware: null,
+      readings: [
+        {
+          role: 'currentL1',
+          label: 'Strom L1',
+          value: 16,
+          unit: 'A',
+          text: null,
+          raw: [160],
+          error: null,
+        },
+      ],
+      missing: [],
+      message: null,
+      modelSource: 'gateway',
+      testedAt: '2026-11-16T10:00:00.000Z',
+    };
+    expect(DeviceTestResponseSchema.safeParse(res).success).toBe(true);
+    expect(DeviceTestResponseSchema.safeParse({ ...res, outcome: 'vielleicht' }).success).toBe(
       false,
     );
   });

@@ -1,6 +1,7 @@
 import type { ChargePoint, Finding } from '@lastplan/core';
 import { SEVERITY_LABEL } from '@lastplan/core';
 import { StatusBadge } from '@lastplan/ui';
+import { DeviceTestSection } from '../../gateway/DeviceTest';
 import { describeModel, ROLE_LABEL, type InfoValue, type LibraryIndex } from './libraryInfo';
 
 export interface ChargePointInfoProps {
@@ -44,7 +45,7 @@ export function ChargePointInfo({ cps, index, findings, pending }: ChargePointIn
         <h3 id="cp-info-test" className="lp-group__title">
           Verbindungstest
         </h3>
-        <StatusBadge status="ready">Nicht verbunden – Gateway folgt</StatusBadge>
+        <DeviceTestSection cps={cps} />
       </section>
 
       <section className="cp-info__section" aria-labelledby="cp-info-lib">
