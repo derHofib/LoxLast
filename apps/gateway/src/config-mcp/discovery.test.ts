@@ -95,15 +95,16 @@ describe('runConfigDiscovery', () => {
           },
         ],
       }),
-      get_insertable_types: () => ({
+      get_insertable_types: (p: { parent_uuid?: string } = {}) => ({
         types: [
           {
-            type: 'ModbusDev',
+            type: p.parent_uuid ? 'ModbusServer' : 'ModbusDev',
             displayName: 'Modbus Gerät',
             group: 'Modbus',
             needsInteraction: false,
             variants: [],
           },
+          { type: 'LoxAIR', displayName: 'Air', group: 'Extension', needsInteraction: false },
         ],
         coveredGroups: ['Modbus'],
       }),
@@ -147,6 +148,7 @@ describe('runConfigDiscovery', () => {
     const run = new Function('cfg', DISCOVERY_QUERY) as (c: typeof cfg) => {
       blockTypes: Array<{ type: string }>;
       modbusObjects: Array<{ path: string; properties: Array<{ options?: unknown }> }>;
+      insertPlaces: unknown[];
       placedBlocks: Array<{ type: string; properties?: unknown; blockData?: unknown }>;
       errors: Array<{ what: string; code: string }>;
     };
@@ -154,6 +156,23 @@ describe('runConfigDiscovery', () => {
     expect(r.blockTypes.map((t) => t.type)).toEqual(['Wallbox']);
     expect(r.modbusObjects[0]?.path).toBe('Miniserver / Wallbox 1');
     expect(r.modbusObjects[0]?.properties[1]?.options).toEqual(['a', 'b']);
+    expect(r.insertPlaces).toEqual([
+      {
+        uuid: 'md',
+        type: 'ModbusDev',
+        name: 'Wallbox 1',
+        path: 'Miniserver / Wallbox 1',
+        isDevice: undefined,
+        insertable: [
+          {
+            type: 'ModbusServer',
+            displayName: 'Modbus Gerät',
+            group: 'Modbus',
+            needsInteraction: false,
+          },
+        ],
+      },
+    ]);
     expect(r.placedBlocks).toMatchObject([
       { type: 'Wallbox', properties: undefined, blockData: { current: { loads: [] } } },
     ]);
