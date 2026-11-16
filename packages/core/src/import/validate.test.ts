@@ -399,7 +399,8 @@ const rowArbitrary = fc.record({
   maxA: fc.constantFrom('', '16', '32', '8', '40 A'),
 });
 
-const toCsv = (rows: fc.RecordValue<typeof rowArbitrary>[]) =>
+type Row = typeof rowArbitrary extends fc.Arbitrary<infer T> ? T : never;
+const toCsv = (rows: Row[]) =>
   parseCsv(
     serializeCsv([
       ['Bezeichnung', 'Gruppe', 'Modell-ID', 'IP', 'Min. Strom', 'Max. Strom'],
