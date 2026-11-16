@@ -1,6 +1,6 @@
 # 0015 – Übergabe soll ein lauffähiges Lastmanagement erzeugen
 
-**Status:** Vorgeschlagen · 2026-11-16
+**Status:** Angenommen (Option A) · 2026-11-16
 
 ## Kontext
 
@@ -57,7 +57,14 @@ erfinden“ und „nur offizielle Schnittstellen“, und ein Undo in Config gibt
 Eingangs per SDK setzen, wird invertiert, sonst wird eine Konstante 1 angelegt (`Constant`,
 einfügbar laut `get_insertable_types`). Beides ist `TODO(verify)` im nächsten Testlauf.
 
-## Vorschlag
+## Entscheidung
+
+Der Auftraggeber hat am 2026-11-16 um 14:02 **Option A** gewählt: Loxone-Standardbausteine
+(Lastmanager, Wallbox Manager) mit Abhak-Liste. Die Übergabe automatisiert alles, was per MCP
+schreibbar ist. Die Dialoge (Lasttabelle, Wallbox-Zuordnung) bleiben Handarbeit, bis Loxone sie
+im SDK öffnet. Option B bleibt hier als geprüfte Alternative stehen.
+
+## Ursprünglicher Vorschlag (nicht gewählt)
 
 **B1 jetzt, B2 als nächster Schritt.** LoadShed und WBEM entfallen in der Übergabe, und die
 Abhak-Liste schrumpft auf Feinschliff (Räume, Kategorien, Visualisierung). Für die Fehlersuche

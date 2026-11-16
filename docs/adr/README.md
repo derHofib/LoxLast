@@ -19,4 +19,4 @@ Status „Annahme“ heißt: begründet getroffen, aber vom Auftraggeber noch ni
 | [0012](0012-geraete-verbindungstest.md)      | Geräte-Verbindungstest (Modbus TCP)                                   | Angenommen    |
 | [0013](0013-export-ueber-config-mcp.md)      | Export und `.Loxone`-Analyse über den Config-MCP                      | Angenommen    |
 | [0014](0014-ampere-und-kw-bausteine.md)      | Ampere in LastPlan, kW in den Config-Bausteinen                       | Vorgeschlagen |
-| [0015](0015-lauffaehiges-lastmanagement.md)  | Übergabe erzeugt ein lauffähiges Lastmanagement                       | Vorgeschlagen |
+| [0015](0015-lauffaehiges-lastmanagement.md)  | Übergabe erzeugt ein lauffähiges Lastmanagement                       | Angenommen    |
