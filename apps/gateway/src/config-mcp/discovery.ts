@@ -12,6 +12,8 @@ import { checkConfigMcp } from './status';
  * - Bausteintypen, deren Schlüssel/Name/Kategorie/Beschreibung auf Wallbox, Last, Energie,
  *   Zähler, Laden oder Modbus deutet – mit Anschlüssen (`get_block_types`).
  * - einfügbare Peripherietypen (`get_insertable_types`), kompakt.
+ * - Einfügeorte unter dem Miniserver (`get_insertable_types` mit `parent_uuid`): ob sich dort
+ *   z. B. ein Modbusserver oder ein virtueller Eingang einfügen lässt.
  * - Modbus-Objekte im Peripheriebaum (`get_tree`) mit Eigenschaften (`get_block_properties`)
  *   und, wo es Optionen gibt, deren Liste (`get_property_options`).
  * - platzierte Bausteine passender Typen mit Anschlüssen (`get_block_index`, `get_block`) und
@@ -64,6 +66,23 @@ const walk = (node, path) => {
 };
 for (const r of tree.roots) walk(r, []);
 
+// Einfügeorte: was sich unter Miniserver und dessen direkten Unterknoten (z. B. Netzwerkperipherie)
+// einfügen lässt, beschränkt auf Modbus, Netzwerk und virtuelle Ein-/Ausgänge. Nur lesend.
+const PLACE_RE = /modbus|server|netz|network|virtual/i;
+const insertPlaces = [];
+const place = (node, path, depth) => {
+  const here = path.concat(node.name);
+  if (node.uuid && depth >= 1 && insertPlaces.length < MAX_OBJECTS) {
+    const r = attempt('get_insertable_types ' + node.uuid, () => cfg.get_insertable_types({ parent_uuid: node.uuid }));
+    insertPlaces.push({
+      uuid: node.uuid, type: node.type, name: node.name, path: here.join(' / '), isDevice: node.isDevice,
+      insertable: r ? r.types.filter((t) => PLACE_RE.test([t.type, t.displayName, t.group].join(' '))).map((t) => ({ type: t.type, displayName: t.displayName, group: t.group, needsInteraction: t.needsInteraction })) : undefined,
+    });
+  }
+  if (depth < 2) for (const c of node.children || []) place(c, here, depth + 1);
+};
+for (const r of tree.roots) place(r, [], 0);
+
 const index = attempt('get_block_index', () => cfg.get_block_index().blocks) || [];
 const wanted = new Set(blockTypes.map((t) => t.type));
 const placedBlocks = index.filter((b) => wanted.has(b.type)).slice(0, MAX_OBJECTS).map((b) => {
@@ -79,7 +98,7 @@ const placedBlocks = index.filter((b) => wanted.has(b.type)).slice(0, MAX_OBJECT
   };
 });
 
-return { blockTypeCount: types.length, blockTypes, coveredGroups: ins.coveredGroups, insertable, modbusObjects, placedBlocks, errors };
+return { blockTypeCount: types.length, blockTypes, coveredGroups: ins.coveredGroups, insertable, insertPlaces, modbusObjects, placedBlocks, errors };
 `;
 
 interface DiscoveryValue {
