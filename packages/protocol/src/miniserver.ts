@@ -6,6 +6,10 @@ export const MiniserverConfigRequestSchema = z.object({
   host: HostSchema,
   user: z.string().trim().min(1).max(200),
   password: z.string().min(1).max(500),
+  /** Standard 80 bzw. 443 mit TLS. */
+  port: z.number().int().min(1).max(65535).optional(),
+  /** WSS – nur Miniserver Gen 2 und nur mit Hostnamen, für den das Zertifikat gilt (ADR 0008). */
+  tls: z.boolean().optional(),
 });
 export type MiniserverConfigRequest = z.infer<typeof MiniserverConfigRequestSchema>;
 

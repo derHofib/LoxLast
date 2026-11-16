@@ -7,6 +7,9 @@ export interface Secret {
   host?: string;
   username?: string;
   password: string;
+  /** Nur Miniserver: Port und TLS (ADR 0008). */
+  port?: number;
+  tls?: boolean;
 }
 
 export interface CredentialMeta {
@@ -57,6 +60,8 @@ export class CredentialStore {
     const payload: Secret = { password: secret.password };
     if (secret.host !== undefined) payload.host = secret.host;
     if (secret.username !== undefined) payload.username = secret.username;
+    if (secret.port !== undefined) payload.port = secret.port;
+    if (secret.tls !== undefined) payload.tls = secret.tls;
     const sealed = seal(this.key, JSON.stringify(payload), id);
     const existing = this.getMeta(id);
     this.db
