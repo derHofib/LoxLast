@@ -8,6 +8,7 @@ import {
   applyFixCommand,
   deleteCommand,
   duplicateCommand,
+  importChargePointsCommand,
   moveChargePointsCommand,
   moveClusterCommand,
   moveGroupsCommand,
@@ -105,5 +106,28 @@ describe('Befehle mit Undo/Redo', () => {
     const cmd = applyFixCommand({ label: 'Phasenlage ändern', changes: fix.changes });
     roundTrip(cmd);
     expect(analyzeProject(p()).loadByLevel.get('site')?.unbalanceA).toBe(0);
+  });
+
+  it('CSV-Import ist ein Undo-Schritt mit stabilen IDs', () => {
+    const { id, ...template } = p().chargePoints[0]!;
+    expect(id).toBeTruthy();
+    const rows = [10, 11].map((n) => ({
+      line: n - 8,
+      chargePoint: { ...template, label: `LP${n}`, network: { ip: `192.168.10.${n}`, port: 502 } },
+    }));
+    const { command, ids } = importChargePointsCommand(rows);
+    expect(command.label).toBe('2 Ladepunkte importiert');
+    roundTrip(command);
+    expect(
+      p()
+        .chargePoints.slice(-2)
+        .map((c) => [c.id, c.label]),
+    ).toEqual([
+      [ids[0], 'LP10'],
+      [ids[1], 'LP11'],
+    ]);
+    expect(importChargePointsCommand(rows.slice(0, 1)).command.label).toBe(
+      '1 Ladepunkt importiert',
+    );
   });
 });
