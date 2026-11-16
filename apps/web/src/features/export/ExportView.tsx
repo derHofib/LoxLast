@@ -161,7 +161,7 @@ export function ExportView() {
               <span>
                 <strong>In bestehendes Projekt einfügen</strong>
                 <span className="export-muted">
-                  Folgt mit Meilenstein 6: Übergabe an das in Loxone Config geöffnete Projekt.
+                  Über die Karte „Loxone Config“: Übergabe an das dort geöffnete Projekt.
                 </span>
               </span>
             </label>

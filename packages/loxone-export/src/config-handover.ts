@@ -122,7 +122,7 @@ export interface PlannedVirtualInput {
   name: string;
   valueKw: number;
   valueA: number;
-  target: { key: string; connector: string };
+  target: { key: string; connector: 'maxP' | 'Pmax' };
 }
 
 export interface HandoverPlan {
@@ -438,18 +438,18 @@ function emptyPlan(project: Project, blockers: string[]): HandoverPlan {
 /** Was das Skript braucht; das Gateway erhält genau diese Felder (protocol: ConfigHandoverPlan). */
 export interface HandoverScriptInput {
   pageName: string;
-  loadManagers: ReadonlyArray<
+  loadManagers: Array<
     Pick<PlannedLoadManager, 'key' | 'title' | 'maxKw'> & { parent?: PlannedLoadManager['parent'] }
   >;
-  wallboxManagers: ReadonlyArray<Pick<PlannedWallboxManager, 'key' | 'title' | 'parent'>>;
-  wallboxes: ReadonlyArray<Pick<PlannedWallbox, 'key' | 'title' | 'maxKw' | 'minKw'>>;
-  virtualInputs: ReadonlyArray<Pick<PlannedVirtualInput, 'key' | 'name' | 'target'>>;
-  modbusDevices: ReadonlyArray<
+  wallboxManagers: Array<Pick<PlannedWallboxManager, 'key' | 'title' | 'parent'>>;
+  wallboxes: Array<Pick<PlannedWallbox, 'key' | 'title' | 'maxKw' | 'minKw'>>;
+  virtualInputs: Array<Pick<PlannedVirtualInput, 'key' | 'name' | 'target'>>;
+  modbusDevices: Array<
     Omit<PlannedModbusDevice, 'registers'> & {
-      registers: ReadonlyArray<
+      registers: Array<
         Omit<PlannedModbusDevice['registers'][number], 'role' | 'properties'> & {
           role: string;
-          properties: Readonly<Record<string, number | boolean | string>>;
+          properties: Record<string, number | boolean | string>;
         }
       >;
     }

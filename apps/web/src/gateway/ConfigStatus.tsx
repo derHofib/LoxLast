@@ -5,6 +5,7 @@ import type {
 } from '@lastplan/protocol';
 import { Button, StatusBadge, type Status } from '@lastplan/ui';
 import { useState } from 'react';
+import { ConfigHandover } from './ConfigHandover';
 import { GatewayPairForm } from './DeviceTest';
 import {
   GatewayError,
@@ -103,8 +104,8 @@ function ConfigDiscovery() {
 }
 
 /**
- * Verbindung zu Loxone Config über das Gateway (ADR 0013, Plan 6.2). Prüft nur lesend; die
- * eigentliche Übergabe folgt mit 6.4/6.5.
+ * Verbindung zu Loxone Config über das Gateway (ADR 0013, Plan 6.2). Die Prüfung liest nur;
+ * danach bietet die Karte die Übergabe (6.5) und die Erkundung (6.3) an.
  */
 export function ConfigStatus() {
   const paired = useGatewayStore((s) => s.session !== null);
@@ -176,7 +177,12 @@ export function ConfigStatus() {
       <Button onClick={() => void check()} disabled={state.kind === 'running'}>
         Verbindung prüfen
       </Button>
-      {state.kind === 'done' && state.result.status === 'ok' ? <ConfigDiscovery /> : null}
+      {state.kind === 'done' && state.result.status === 'ok' ? (
+        <>
+          <ConfigHandover serverVersion={state.result.server?.version} />
+          <ConfigDiscovery />
+        </>
+      ) : null}
     </>
   );
 }

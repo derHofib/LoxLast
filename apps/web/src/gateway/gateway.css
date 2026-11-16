@@ -30,3 +30,33 @@
   padding-top: var(--space-4);
   border-top: 1px solid var(--color-border);
 }
+
+.config-handover {
+  display: grid;
+  gap: var(--space-3, 12px);
+  margin-block: var(--space-4, 16px);
+}
+.config-handover__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+.config-handover__table th,
+.config-handover__table td {
+  text-align: start;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--color-border, #ddd);
+}
+.config-handover__preview summary {
+  cursor: pointer;
+}
+.config-handover__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2, 8px);
+}
+.config-handover__issues,
+.config-handover__step ul {
+  margin: 0;
+  padding-inline-start: 1.25rem;
+}
