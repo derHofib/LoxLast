@@ -171,6 +171,9 @@ describe('buildHandoverPlan', () => {
       'WB_LP01',
       'WB_LP02',
     ]);
+    const ec = plan.manualSteps.find((s) => s.block === 'wallbox-enable')!;
+    expect(ec.title).toBe('Ladefreigabe (Ec)');
+    expect(ec.items.slice(1)).toEqual(plan.wallboxes.map((w) => w.title));
     expect(plan.pending.length).toBeGreaterThan(0);
   });
 

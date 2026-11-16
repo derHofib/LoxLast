@@ -25,11 +25,11 @@ Die Spezifikation (7.2, Schritt 3) verlangt: einen Lastmanager für den Standort
 
 ## Offen, vor der Umsetzung (6.4) zu klären
 
-- `TODO(verify)`: Kann MaxP des Kind-Lastmanagers aus einem Ausgang gespeist werden, oder ist MaxP nur ein Parameter? Davon hängt Punkt 4 ab. Prüfung über einen platzierten `LoadShed` (Anschlüsse aus `get_block`).
+- Geklärt (erster Lauf am 2026-11-16 im Testprojekt): MaxP des Kind-Lastmanagers lässt sich aus einem Ausgang (L1, L2 …) des übergeordneten Lastmanagers speisen.
 - Belegt (Erkundung 2026-11-16, 11:03): Der Wallbox Manager gruppiert seine Wallboxen im Dialog in „Stränge“ mit Leistungsgrenze, `get_block_data` meldet für diesen Dialog aber `dataContract: false`. Per MCP sind die Stränge also nicht schreibbar. Wallbox: Eigenschaften 3050 „Max. Ladeleistung [kW]“ und 3049 „Min. Ladeleistung [kW]“, Limit-Eingang mit Schlüssel `loadshed`, Ausgang `outLimit`.
 - Belegt (Erkundung 2026-11-16, 12:06): Beim Lastmanager (`LoadShed`) sind per MCP schreibbar: Eigenschaft 416 „MaxP [kW]“, 3054 „Arbeitsmodus“ (0 = Überlastschutz) und der Parameter-Anschluss `maxP`. Die Lasttabelle (analog/digital, Mindestleistung) steht weder in den Eigenschaften noch in `get_block_data` und ist damit nicht schreibbar. Ausgänge `AQl1`–`AQl12`.
 - **Entschieden vom Auftraggeber (2026-11-16):** Loxone-Standardbausteine. LastPlan legt Lastmanager, Wallbox Manager und Wallboxen an, benennt, verdrahtet und setzt alle schreibbaren Werte. Was nur im Dialog geht (Lasttabelle des Lastmanagers, Zuordnung der Wallboxen zum Wallbox Manager), gibt LastPlan als Abhak-Liste je Baustein aus. Eine eigene Ersatzlogik aus einfachen Bausteinen wird nicht gebaut.
-- `TODO(verify)`: Nimmt `connect_blocks` den Parameter-Anschluss `maxP` als Ziel an? Prüfung beim ersten Lauf in einem Testprojekt (rückgängig per Undo).
+- Geklärt (erster Lauf am 2026-11-16): `connect_blocks` nimmt den Parameter-Anschluss `maxP` als Ziel an, ebenso `Pmax` am Wallbox Manager.
 - Die Lasttabelle des Lastmanagers (Typ analog/digital, Priorität, Mindestleistung) liegt hinter dem Baustein-Dialog. Die Erkundung liest sie jetzt mit `get_block_data`, damit 6.4 ihr Format kennt.
 
 ## Folgen

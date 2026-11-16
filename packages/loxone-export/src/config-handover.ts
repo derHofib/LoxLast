@@ -368,6 +368,18 @@ export function buildHandoverPlan(
         ...wm.wallboxes,
       ],
     })),
+    ...(wallboxes.length > 0
+      ? [
+          {
+            block: 'wallbox-enable',
+            title: 'Ladefreigabe (Ec)',
+            items: [
+              'Eingang Ec (Ladefreigabe) je Wallbox verbinden, z. B. mit Freigabe per App, Schalter oder Konstante 1 (die Quelle ist anlagenspezifisch):',
+              ...wallboxes.map((w) => w.title),
+            ],
+          },
+        ]
+      : []),
   ];
 
   const pending = ['Freigabe (Ec) und Status der Wallbox werden noch nicht an Modbus angebunden.'];
