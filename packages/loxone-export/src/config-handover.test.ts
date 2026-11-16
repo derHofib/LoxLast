@@ -228,6 +228,7 @@ function fakeCfg(
   miniservers = 1,
   servers: string[] = ['192.168.10.21:502'],
   actorInputs = [{ key: 'AI', dataType: 'analog' }],
+  { msType = 'MiniserverGen2', virtualAt = 'vin0' }: { msType?: string; virtualAt?: string } = {},
 ) {
   const calls: Array<[string, Record<string, unknown>]> = [];
   let u = 0;
@@ -247,19 +248,31 @@ function fakeCfg(
           children: Array.from({ length: miniservers }, (_, i) => ({
             name: `MS${i}`,
             uuid: `ms${i}`,
-            type: 'MiniserverGen2',
+            type: msType,
             isDevice: true,
-            childCount: servers.length,
-            children: servers.map((_, j) => ({
-              name: `Server ${j}`,
-              uuid: `srv${j}`,
-              type: 'ModbusServer',
-              childCount: 0,
-              children: [],
-            })),
+            childCount: servers.length + 1,
+            children: [
+              {
+                name: 'Virtuelle Eingänge',
+                uuid: `vin${i}`,
+                type: 'VirtualInCaption',
+                childCount: 0,
+                children: [],
+              },
+              ...servers.map((_, j) => ({
+                name: `Server ${j}`,
+                uuid: `srv${j}`,
+                type: 'ModbusServer',
+                childCount: 0,
+                children: [],
+              })),
+            ],
           })),
         },
       ],
+    })),
+    get_insertable_types: rec('get_insertable_types', (p) => ({
+      types: p['parent_uuid'] === virtualAt ? [{ type: 'VirtualIn' }] : [{ type: 'Other' }],
     })),
     get_block_properties: rec('get_block_properties', (p) => ({
       properties: [{ id: 1000, value: servers[Number(String(p['uuid']).slice(3))] }],
@@ -294,6 +307,7 @@ describe('renderHandoverScript', () => {
     expect(used).toEqual(
       new Set([
         'get_tree',
+        'get_insertable_types',
         'get_block_properties',
         'get_block',
         'add_page',
@@ -358,17 +372,42 @@ describe('renderHandoverScript', () => {
     );
     expect(calls.find(([m]) => m === 'insert_object')?.[1]).toMatchObject({
       type: 'VirtualIn',
-      parent_uuid: 'ms0',
+      parent_uuid: 'vin0',
     });
   });
 
   it('bricht vor jeder Änderung ab, wenn nicht genau ein Miniserver da ist', () => {
     const plan = buildHandoverPlan(sample(), MODELS);
     for (const count of [0, 2]) {
-      const { cfg, calls } = fakeCfg(count);
+      const { cfg, calls } = fakeCfg(count, undefined, undefined, { msType: 'Unbekannt' });
       expect(() => run(plan, cfg)).toThrow(/Genau ein Miniserver/);
       expect(calls.map(([m]) => m)).toEqual(['get_tree']);
     }
+    const { cfg } = fakeCfg(2, undefined, undefined, { msType: 'Unbekannt' });
+    expect(() => run(plan, cfg)).toThrow(
+      'Unter der Projektwurzel: MS0 (Unbekannt, Gerät); MS1 (Unbekannt, Gerät)',
+    );
+    const empty = fakeCfg(0);
+    expect(() => run(plan, empty.cfg)).toThrow('Unter der Projektwurzel: nichts');
+  });
+
+  it('Miniserver ohne „Miniserver“ im Typ: das einzige Gerät unter der Projektwurzel', () => {
+    const plan = buildHandoverPlan(sample(), MODELS);
+    const { cfg, calls } = fakeCfg(1, undefined, undefined, { msType: 'LoxLIVE' });
+    run(plan, cfg);
+    expect(calls.find(([m]) => m === 'add_page')?.[1]).toMatchObject({ context_uuid: 'ms0' });
+  });
+
+  it('virtuelle Eingänge: Ort wird abgefragt, ohne passenden Ort Abbruch vor jeder Änderung', () => {
+    const plan = buildHandoverPlan(sample(), MODELS);
+    const atMs = fakeCfg(1, undefined, undefined, { virtualAt: 'ms0' });
+    run(plan, atMs.cfg);
+    expect(atMs.calls.find(([m]) => m === 'insert_object')?.[1]).toMatchObject({
+      parent_uuid: 'ms0',
+    });
+    const none = fakeCfg(1, undefined, undefined, { virtualAt: 'nirgends' });
+    expect(() => run(plan, none.cfg)).toThrow('Kein Ort für virtuelle Eingänge');
+    expect(none.calls.some(([m]) => m === 'add_page')).toBe(false);
   });
 
   it('Modbus: Gerät, Sensoren und Aktor mit Eigenschaften aus der Bibliothek', () => {
