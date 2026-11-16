@@ -1,6 +1,6 @@
 import type { ProjectChange } from '../calc/changes';
 import { newId } from '../ids';
-import type { ChargePoint, Cluster, Group, Project } from '../model';
+import type { ChargePoint, Cluster, Group, NetworkEndpoint, Project } from '../model';
 
 /**
  * Bearbeitungsoperationen für Struktur- und Ladepunkte-Ansicht.
@@ -191,9 +191,14 @@ export function addChargePoint(project: Project, input: NewChargePointInput): Ch
 
 export type ClusterPatch = { [K in keyof Omit<Cluster, 'id'>]?: Cluster[K] | undefined };
 export type GroupPatch = { [K in keyof Omit<Group, 'id'>]?: Group[K] | undefined };
+/**
+ * Änderung an Ladepunkten. `network` wird je Ladepunkt FELDWEISE eingemischt (nicht ersetzt),
+ * damit bei Massenbearbeitung z. B. nur der Port gesetzt wird und die IPs erhalten bleiben.
+ * `unitId: undefined` entfernt die Unit-ID.
+ */
 export type ChargePointPatch = {
-  [K in keyof Omit<ChargePoint, 'id'>]?: ChargePoint[K] | undefined;
-};
+  [K in keyof Omit<ChargePoint, 'id' | 'network'>]?: ChargePoint[K] | undefined;
+} & { network?: { [K in keyof NetworkEndpoint]?: NetworkEndpoint[K] | undefined } };
 export type SitePatch = { [K in keyof Project['site']]?: Project['site'][K] | undefined };
 
 export function updateSite(project: Project, patch: SitePatch): void {
@@ -226,7 +231,9 @@ export function updateChargePoints(
   let count = 0;
   for (const cp of project.chargePoints) {
     if (!set.has(cp.id)) continue;
-    assign(cp, patch);
+    const { network, ...rest } = patch;
+    assign(cp, rest);
+    if (network) assign(cp.network, network);
     count++;
   }
   return count;
