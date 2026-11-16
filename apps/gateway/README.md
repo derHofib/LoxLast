@@ -69,6 +69,11 @@ VM. Den Port aus der VM weiterzuleiten ist nicht vorgesehen, weil der Endpunkt k
   das Gateway `sdk_describe` auf (sind alle benötigten `cfg.*`-Methoden vorhanden?) und führt per
   `code_query` nur `cfg.get_project()` aus. Antwort: `ok`, `not_configured`, `unreachable`,
   `no_document`, `methods_missing` oder `error`.
+- `GET /api/config/discovery` (mit Token, 6/min) ist die Config-Erkundung (Plan 6.3), ebenfalls nur
+  lesend. Ein `code_query` liest passende Bausteintypen mit Anschlüssen (`get_block_types`), den
+  Katalog der einfügbaren Peripherie, Modbus-Objekte im Peripheriebaum samt Eigenschaften und
+  Optionen sowie platzierte Bausteine dieser Typen. Dazu kommt `get_doc` je gefundenem Typ. In der
+  Web-App: Export → Loxone Config → „Config erkunden“, der Bericht wird als JSON gespeichert.
 - Für Tests gibt es einen MCP-Fake (`src/config-mcp/fake-server.ts`), der echtes Streamable HTTP
   spricht und nur dokumentiertes Verhalten nachbildet.
 

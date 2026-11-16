@@ -1,8 +1,10 @@
 import {
+  ConfigDiscoveryResponseSchema,
   ConfigMcpStatusResponseSchema,
   DeviceTestResponseSchema,
   ErrorResponseSchema,
   TokenResponseSchema,
+  type ConfigDiscoveryResponse,
   type ConfigMcpStatusResponse,
   type DeviceTestRequest,
   type DeviceTestResponse,
@@ -156,20 +158,32 @@ export async function requestDeviceTest(req: DeviceTestRequest): Promise<DeviceT
   }
 }
 
-/** Verbindung des Gateways zu Loxone Config prüfen (GET /api/config/status, ADR 0013). */
-export async function requestConfigStatus(): Promise<ConfigMcpStatusResponse> {
+async function authorizedGet<T>(
+  path: string,
+  schema: { safeParse(v: unknown): { success: true; data: T } | { success: false } },
+): Promise<T> {
   const session = activeSession();
   if (!session) throw new GatewayError('Gateway nicht gekoppelt oder Kopplung abgelaufen.', 401);
   try {
-    const body = await call(session.baseUrl, '/api/config/status', {
+    const body = await call(session.baseUrl, path, {
       method: 'GET',
       headers: { Authorization: `Bearer ${session.token}` },
     });
-    const parsed = ConfigMcpStatusResponseSchema.safeParse(body);
+    const parsed = schema.safeParse(body);
     if (!parsed.success) throw new GatewayError('Antwort des Gateways ist ungültig.', null);
     return parsed.data;
   } catch (error) {
     if (error instanceof GatewayError && error.status === 401) forgetGateway();
     throw error;
   }
+}
+
+/** Verbindung des Gateways zu Loxone Config prüfen (GET /api/config/status, ADR 0013). */
+export function requestConfigStatus(): Promise<ConfigMcpStatusResponse> {
+  return authorizedGet('/api/config/status', ConfigMcpStatusResponseSchema);
+}
+
+/** Config-Erkundung, nur lesend (GET /api/config/discovery, Plan 6.3). */
+export function requestConfigDiscovery(): Promise<ConfigDiscoveryResponse> {
+  return authorizedGet('/api/config/discovery', ConfigDiscoveryResponseSchema);
 }

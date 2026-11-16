@@ -12,6 +12,7 @@ import {
   WS_AUTH_TIMEOUT_MS,
   WS_PATH,
   type ChangelogResponse,
+  type ConfigDiscoveryResponse,
   type ConfigMcpStatusResponse,
   type ErrorCode,
   type ErrorResponse,
@@ -28,6 +29,7 @@ import type { MiniserverClient, ModbusClient } from './clients/types';
 import { runDeviceTest } from './device-test';
 import type { ConfigMcpClient } from './config-mcp/client';
 import { checkConfigMcp } from './config-mcp/status';
+import { runConfigDiscovery } from './config-mcp/discovery';
 import type { ModelLibrary } from './library';
 import type { CredentialStore } from './credential-store';
 import type { IssuedToken, PairingService } from './pairing';
@@ -317,6 +319,15 @@ export async function buildServer(deps: ServerDeps): Promise<FastifyInstance> {
       config: { rateLimit: { max: 30, timeWindow: '1 minute' } },
     },
     async (): Promise<ConfigMcpStatusResponse> => checkConfigMcp(configMcp),
+  );
+  // Config-Erkundung (Plan 6.3): nur lesend, kann bei großen Projekten länger dauern.
+  app.get(
+    '/api/config/discovery',
+    {
+      preHandler: requireAuth,
+      config: { rateLimit: { max: 6, timeWindow: '1 minute' } },
+    },
+    async (): Promise<ConfigDiscoveryResponse> => runConfigDiscovery(configMcp),
   );
   app.get('/api/projects/:id/live', { preHandler: requireAuth }, notImplemented);
   app.post('/api/projects/:id/parameters', { preHandler: requireAuth }, notImplemented);

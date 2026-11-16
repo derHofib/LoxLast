@@ -13,6 +13,8 @@ import { z } from 'zod';
 export interface FakeConfigMcpOptions {
   declarations?: string;
   onQuery?: (code: string) => { value: unknown } | { error: string; message: string };
+  /** Antwort von `get_doc` je Typ; fehlt der Typ, antwortet der Fake mit einem Werkzeugfehler. */
+  docs?: Record<string, string>;
 }
 
 /** Auszug aus `sdk_describe` (Form wie geliefert: Methoden als `name(p: …): Result;`). */
@@ -59,6 +61,16 @@ export async function startFakeConfigMcp(opts: FakeConfigMcpOptions = {}): Promi
             ? { success: false, error: r.error, message: r.message, logs: [] }
             : { value: r.value, logs: [] };
         return { content: [{ type: 'text', text: JSON.stringify(payload) }] };
+      },
+    );
+    server.registerTool(
+      'get_doc',
+      { inputSchema: { type: z.string().optional(), uuid: z.string().optional() } },
+      ({ type }) => {
+        const doc = type === undefined ? undefined : opts.docs?.[type];
+        return doc === undefined
+          ? { content: [{ type: 'text', text: 'NOT_FOUND' }], isError: true }
+          : { content: [{ type: 'text', text: doc }] };
       },
     );
     return server;
