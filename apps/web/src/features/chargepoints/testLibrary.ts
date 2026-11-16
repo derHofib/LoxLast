@@ -4,7 +4,7 @@ import { bundledModelFiles } from '../../library/catalog';
 /** Vollständiges Testmodell (nur für Tests, kein reales Gerät) mit eigenen Standardwerten. */
 export const TEST_MODEL_ID = 'test-hersteller/testmodell@1';
 
-function testModel(): Record<string, unknown> {
+function testModel(id = TEST_MODEL_ID, model = 'Testmodell'): Record<string, unknown> {
   const source = 'Testdokument, v1.0, S. 1';
   const registers = Object.fromEntries(
     REGISTER_ROLES.map((role, i) => [
@@ -21,9 +21,9 @@ function testModel(): Record<string, unknown> {
     ]),
   );
   return {
-    id: TEST_MODEL_ID,
+    id,
     vendor: 'Test',
-    model: 'Testmodell',
+    model,
     firmware: { min: '1.0', max: null, source },
     protocols: ['modbus-tcp'],
     electrical: { minA: 6, maxA: 20, phases: [1, 3], phaseSwitching: false, source },
@@ -32,10 +32,21 @@ function testModel(): Record<string, unknown> {
   };
 }
 
+/** Zweites Testmodell desselben Herstellers (für die Modellauswahl nach Herstellerwechsel). */
+export const TEST_MODEL_2_ID = 'test-hersteller/testmodell-zwei@1';
+
 /** Mitgelieferte Bibliothek (mit dem lückenhaften ABL-Modell) plus das Testmodell. */
-export function testLibrary(): LibraryCheck {
+export function testLibrary({ second = false }: { second?: boolean } = {}): LibraryCheck {
   return loadLibrary([
     ...bundledModelFiles,
     { path: `${TEST_MODEL_ID}.json`, content: JSON.stringify(testModel()) },
+    ...(second
+      ? [
+          {
+            path: `${TEST_MODEL_2_ID}.json`,
+            content: JSON.stringify(testModel(TEST_MODEL_2_ID, 'Testmodell Zwei')),
+          },
+        ]
+      : []),
   ]);
 }
