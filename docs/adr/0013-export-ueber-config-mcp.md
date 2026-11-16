@@ -1,6 +1,6 @@
 # 0013 – Export und `.Loxone`-Analyse über den Config-MCP
 
-**Status:** Vorschlag · 2026-11-16 (wartet auf Freigabe durch den Auftraggeber)
+**Status:** Angenommen · 2026-11-16 (vom Auftraggeber freigegeben)
 
 ## Kontext
 
@@ -36,7 +36,7 @@ Loxone Config bringt inzwischen einen eigenen MCP-Server mit, den „LOXONE Conf
 - **Versionen.** Weder die Config-Version noch die Version der Miniserver-Firmware wird von einem Werkzeug geliefert. TODO(verify): ob `get_actions` oder `get_project` etwas dazu enthält.
 - **Anmeldung am Endpunkt.** Ob der Endpunkt Clients außer Claude annimmt und ob er eine Anmeldung verlangt, ist TODO(verify).
 
-## Entscheidung (Vorschlag)
+## Entscheidung
 
 **LastPlan erzeugt keine Loxone-Dateien mehr selbst. Stattdessen setzt LastPlan seinen geprüften Plan über den Config-MCP in der geöffneten Config um.**
 
