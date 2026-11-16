@@ -17,3 +17,4 @@ Status „Annahme“ heißt: begründet getroffen, aber vom Auftraggeber noch ni
 | [0010](0010-ui-zustand-und-speicherung.md)   | Zustand, Undo/Redo und lokale Speicherung                             | Angenommen |
 | [0011](0011-struktur-ansicht-react-flow.md)  | Struktur-Ansicht: React Flow, elkjs, Knoten bleiben Buttons           | Angenommen |
 | [0012](0012-geraete-verbindungstest.md)      | Geräte-Verbindungstest (Modbus TCP)                                   | Angenommen |
+| [0013](0013-export-ueber-config-mcp.md)      | Export und `.Loxone`-Analyse über den Config-MCP                      | Vorschlag  |
