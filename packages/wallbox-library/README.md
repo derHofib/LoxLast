@@ -55,6 +55,36 @@ Die CI führt denselben Befehl aus.
 5. Die Tests lokal laufen lassen.
 6. Einen Pull Request öffnen.
 
+## Veröffentlichung
+
+Bei jedem Push auf `main`, der dieses Paket betrifft, baut
+`.github/workflows/library-publish.yml` das Bibliothekspaket und veröffentlicht
+es auf GitHub Pages:
+
+- `https://derhofib.github.io/LoxLast/library.json`: alle gültigen Modelle
+  (`formatVersion: 1`, `version`, `generatedAt`, `models`).
+- `https://derhofib.github.io/LoxLast/index.json`: nur `version` und
+  `modelCount`.
+
+Als `version` dient der Commit-SHA (`GITHUB_SHA`). Lokal ohne Variable wird ein
+Zeitstempel verwendet:
+
+```bash
+pnpm --filter @lastplan/wallbox-library bundle
+```
+
+Das Skript bricht mit Exit-Code 1 ab, sobald eine Modelldatei ungültig ist oder
+eine Kennung doppelt vorkommt. Dann wird nichts veröffentlicht. Unvollständige
+Modelle (mit `TODO`) gehören ins Paket, weil die App sie als „unvollständig“
+anzeigt.
+
+**Einmalig in den Repo-Einstellungen:** Settings → Pages → „Build and
+deployment“ → Source auf „GitHub Actions“ stellen. Ohne diese Einstellung schlägt
+der Deploy-Schritt fehl.
+
+Die App lädt das Paket nach dem Start oder auf Anforderung und prüft es erneut
+(siehe `apps/web/src/library/`). Ungültige Pakete werden nicht übernommen.
+
 ## Hinweis
 
 Nichts aus dem Gedächtnis übernehmen. Die Herstellerdokumente liegen unter
