@@ -168,7 +168,7 @@ export const ExportRecordSchema = z.object({
 export type ExportRecord = z.infer<typeof ExportRecordSchema>;
 
 /** Aktuelle Version des gespeicherten Projektformats. Bei Änderungen: Migration ergänzen (migrations/). */
-export const CURRENT_SCHEMA_VERSION = 1;
+export const CURRENT_SCHEMA_VERSION = 2;
 
 export const ProjectSchema = z.object({
   id: IdSchema,

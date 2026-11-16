@@ -165,6 +165,22 @@ export function renderName(
   );
 }
 
+/** Gemeinsamer Anfang mehrerer Namen, z. B. „WB_UV-2_G1_“, als Suchhinweis für die Config-Dialoge. */
+export function commonPrefix(names: readonly string[]): string {
+  if (names.length === 0) return '';
+  let prefix = names[0] ?? '';
+  for (const n of names) while (!n.startsWith(prefix)) prefix = prefix.slice(0, -1);
+  return prefix;
+}
+
+const searchHint = (names: readonly string[]) => {
+  // bis zum letzten Trennzeichen kürzen: „WB_TG_G1_LP0“ → „WB_TG_G1_“
+  const raw = commonPrefix(names);
+  const cut = Math.max(raw.lastIndexOf('_'), raw.lastIndexOf(' '));
+  const prefix = cut > 0 ? raw.slice(0, cut + 1) : raw;
+  return names.length > 1 && prefix.length >= 3 ? ` (Suche: „${prefix}“)` : '';
+};
+
 /** Cluster-Limit in A je Phase: bei abweichenden Phasen-Limits das kleinste. */
 function clusterLimitA(cluster: Cluster): number {
   return minPhase(clusterOwnLimit(cluster));
@@ -219,15 +235,19 @@ export function buildHandoverPlan(
   };
 
   const groupMinKw = new Map<string, number>();
+  /** Laufende Nummer der Gruppe in ihrem Cluster (1, 2, …), für {groupNo}. */
+  const groupNo = (group: Group) =>
+    String(project.groups.filter((g) => g.clusterId === group.clusterId).indexOf(group) + 1);
   const planGroup = (group: Group, clusterName: string, parentKey: string, slot: number) => {
     const key = `group:${group.id}`;
-    const title = renderName(project, 'groupLimit', { cluster: clusterName, group: group.name });
+    const names = { cluster: clusterName, group: group.name, groupNo: groupNo(group) };
+    const title = renderName(project, 'groupLimit', names);
     claimTitle(title, `Gruppe ${group.name}`);
     const cps = project.chargePoints.filter((cp) => cp.groupId === group.id);
     const titlesOfGroup: string[] = [];
     let minKw = Number.POSITIVE_INFINITY;
     for (const cp of cps) {
-      const wbTitle = renderName(project, 'wallbox', { label: cp.label });
+      const wbTitle = renderName(project, 'wallbox', { ...names, label: cp.label });
       claimTitle(wbTitle, `Ladepunkt ${cp.label}`);
       const wbMin = ceil2(kwFromA(cp.minA, cp.phases, V));
       minKw = Math.min(minKw, wbMin);
@@ -337,7 +357,7 @@ export function buildHandoverPlan(
   const virtualInputs: PlannedVirtualInput[] = [
     {
       key: 'vi:site',
-      name: `${siteTitle} Limit (kW) – ${fmt(siteA)} A`,
+      name: `VI_${siteTitle} Limit kW (${fmt(siteA)} A)`,
       valueKw: kw3(siteA),
       valueA: siteA,
       target: { key: 'site', connector: LOXONE_CONNECTORS.loadManagerMaxP },
@@ -351,7 +371,7 @@ export function buildHandoverPlan(
         block: lm.key,
         title: lm.title,
         items: [
-          'Lasttabelle öffnen und je Zeile eintragen (Reihenfolge = Abwurf-Reihenfolge, oben zuerst):',
+          `Lasttabelle öffnen und je Zeile eintragen${searchHint(lm.loads.map((l) => l.title))} (Reihenfolge = Abwurf-Reihenfolge, oben zuerst):`,
           ...[...lm.loads]
             .sort((a, b) => b.priority - a.priority || b.slot - a.slot)
             .map(
@@ -364,7 +384,7 @@ export function buildHandoverPlan(
       block: wm.key,
       title: wm.title,
       items: [
-        'Im Dialog „Konfigurieren…“ diese Wallboxen hinzufügen (Reihenfolge = Priorität):',
+        `Im Dialog „Konfigurieren…“ diese Wallboxen hinzufügen${searchHint(wm.wallboxes)} (Reihenfolge = Priorität):`,
         ...wm.wallboxes,
       ],
     })),
