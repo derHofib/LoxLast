@@ -5,6 +5,7 @@ import { useProjectStore } from '../state/projectStore';
 import { repository } from '../storage/db';
 import { command } from '../state/history';
 import { ChargePointsTab } from '../features/chargepoints/ChargePointsTab';
+import { ExportView } from '../features/export/ExportView';
 
 export const PROJECT_TABS = [
   { id: 'struktur', label: 'Struktur' },
@@ -14,7 +15,6 @@ export const PROJECT_TABS = [
 ] as const;
 
 const PLACEHOLDER: Record<string, string> = {
-  export: 'Loxone-Export folgt in Meilenstein 6.',
   live: 'Live-Werte folgen in Meilenstein 8 (benötigt das Gateway).',
 };
 
@@ -116,6 +116,8 @@ export function ProjectShell() {
             </Suspense>
           ) : tab === 'ladepunkte' ? (
             <ChargePointsTab />
+          ) : tab === 'export' ? (
+            <ExportView />
           ) : (
             <Card>{PLACEHOLDER[tab]}</Card>
           )}

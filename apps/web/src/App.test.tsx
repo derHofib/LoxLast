@@ -27,7 +27,7 @@ describe('App', () => {
         'true',
       ),
     );
-    expect(screen.getByText(/Loxone-Export folgt/)).toBeTruthy();
+    expect(await screen.findByText('Wird erzeugt')).toBeTruthy();
   });
 
   it('Umbenennen ist per Rückgängig-Button umkehrbar', async () => {
