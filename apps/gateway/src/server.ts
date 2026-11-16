@@ -29,14 +29,14 @@ import {
 import { checkModel, type WallboxModel } from '@lastplan/wallbox-library';
 import type { Changelog } from './changelog';
 import { tcpProbe } from './clients/tcp-probe';
-import type { MiniserverClient, ModbusClient } from './clients/types';
+import type { LiveValueSource, MiniserverClient, ModbusClient } from './clients/types';
 import { runDeviceTest } from './device-test';
 import type { ConfigMcpClient } from './config-mcp/client';
 import { checkConfigMcp } from './config-mcp/status';
 import { runConfigDiscovery } from './config-mcp/discovery';
 import { runConfigHandover, saveConfig, undoConfig } from './config-mcp/handover';
 import type { ModelLibrary } from './library';
-import type { CredentialStore } from './credential-store';
+import type { CredentialStore, Secret } from './credential-store';
 import type { IssuedToken, PairingService } from './pairing';
 
 export const GATEWAY_VERSION = '0.1.0';
@@ -49,6 +49,8 @@ export interface ServerDeps {
   changelog: Changelog;
   /** Fehlt der Client (noch keine echte Implementierung), meldet die API „getrennt“. */
   miniserver?: MiniserverClient;
+  /** Live-Werte und Status des Miniservers (Plan 8.6); meist dasselbe Objekt wie `miniserver`. */
+  live?: LiveValueSource;
   /** Modbus-Client für den Geräte-Test. Fehlt er, antwortet `/api/devices/test` mit 501. */
   modbus?: ModbusClient;
   /** Wallbox-Bibliothek des Gateways (Quelle der Register, ADR 0012). */
@@ -193,18 +195,19 @@ export async function buildServer(deps: ServerDeps): Promise<FastifyInstance> {
         .code(400)
         .send(err('invalid_request', body.error.issues[0]?.message ?? 'Eingabe ungültig.'));
     }
-    const { host, user, password } = body.data;
-    const { created } = deps.credentials.set(MINISERVER_CREDENTIAL_ID, 'miniserver', host, {
-      host,
-      username: user,
-      password,
-    });
+    const { host, user, password, port, tls } = body.data;
+    const secret: Secret = { host, username: user, password };
+    if (port !== undefined) secret.port = port;
+    if (tls !== undefined) secret.tls = tls;
+    const { created } = deps.credentials.set(MINISERVER_CREDENTIAL_ID, 'miniserver', host, secret);
     deps.changelog.record({
       action: 'miniserver.configure',
       actor: actor(req),
       target: MINISERVER_CREDENTIAL_ID,
-      after: { host, user, created },
+      after: { host, user, port: port ?? null, tls: tls ?? false, created },
     });
+    // Mit den neuen Zugangsdaten neu verbinden; Fehler erscheinen im Status, nicht in dieser Antwort.
+    deps.miniserver?.restart?.().catch(() => undefined);
     const res: MiniserverConfigResponse = { configured: true, host, user };
     return reply.code(created ? 201 : 200).send(res);
   });
@@ -214,8 +217,8 @@ export async function buildServer(deps: ServerDeps): Promise<FastifyInstance> {
     { preHandler: requireAuth },
     async (): Promise<MiniserverStatus & { configured: boolean }> => {
       const configured = deps.credentials.getMeta(MINISERVER_CREDENTIAL_ID) !== undefined;
+      if (deps.live) return { ...deps.live.status, configured };
       const state = deps.miniserver?.state ?? 'disconnected';
-      // Zeitstempel letzter Werte und Fehlerzustand kommen mit der echten Implementierung (Meilenstein 9).
       return { state, lastValuesAt: null, configured };
     },
   );
@@ -412,6 +415,17 @@ export async function buildServer(deps: ServerDeps): Promise<FastifyInstance> {
     notImplemented,
   );
 
+  // Angemeldete WebSocket-Clients bekommen Statuswechsel des Miniservers (`miniserver.state`).
+  const authedSockets = new Set<{ send(data: string): void }>();
+  const live = deps.live;
+  if (live) {
+    const off = live.onStatus((status) => {
+      const msg = JSON.stringify({ type: 'miniserver.state', status } satisfies ServerMessage);
+      for (const s of authedSockets) s.send(msg);
+    });
+    app.addHook('onClose', async () => off());
+  }
+
   // WebSocket: erste Nachricht muss `auth` sein (Token nie in der URL).
   app.get(WS_PATH, { websocket: true }, (socket, req) => {
     const origin = req.headers.origin;
@@ -438,7 +452,10 @@ export async function buildServer(deps: ServerDeps): Promise<FastifyInstance> {
         socket.close(4401, 'unauthorized');
       }
     }, WS_AUTH_TIMEOUT_MS);
-    socket.on('close', () => clearTimeout(timer));
+    socket.on('close', () => {
+      clearTimeout(timer);
+      authedSockets.delete(socket);
+    });
     socket.on('message', (raw: Buffer) => {
       let parsed;
       try {
@@ -456,6 +473,8 @@ export async function buildServer(deps: ServerDeps): Promise<FastifyInstance> {
           authed = true;
           clearTimeout(timer);
           send({ type: 'ready', serverTime: new Date().toISOString() });
+          authedSockets.add(socket);
+          if (live) send({ type: 'miniserver.state', status: live.status });
         } else {
           send({ type: 'error', code: 'unauthorized', message: 'Zuerst anmelden (auth).' });
           socket.close(4401, 'unauthorized');

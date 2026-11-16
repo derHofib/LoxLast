@@ -1,6 +1,6 @@
 # 0008 – Anbindung des Miniservers im Gateway
 
-**Status:** Annahme · 2026-11-15 (Empfehlung, vom Auftraggeber noch nicht bestätigt)
+**Status:** Annahme · 2026-11-15 (Empfehlung, vom Auftraggeber noch nicht bestätigt). **Offen:** Dennis entscheidet beim PR zu Plan 8.6, ob Variante B so übernommen wird; Umsetzung siehe Nachtrag unten.
 
 ## Kontext
 
@@ -52,6 +52,42 @@ Das Gateway definiert ein Interface **`MiniserverClient`** (Verbinden/Trennen, E
 - Zugangsdaten und Token werden nur im Gateway gehalten, nie im Client oder in Logs.
 - Teststrategie: (1) Mock für Gateway-Logik. (2) Unit-Tests des Protokolls mit festen Byte-Fixtures (Header, Event-Tabellen) und Hash-Berechnungen gegen Vektoren aus der Doku, soweit dort vorhanden (TODO(verify)). (3) Ein lokaler Fake-WebSocket-Server, der Doku-Verhalten nachbildet. (4) Integrationstest gegen einen Test-Miniserver, nur manuell/opt-in, erst wenn verfügbar. Bis dahin gilt die echte Implementierung als unverifiziert.
 - Risiko: Die Doku nennt keine Ratenlimits außer Anmelde-Sperren und Verbindungsgrenzen; Verhalten ist am Test-Miniserver zu messen.
+
+## Nachtrag 2026-11-16: Umsetzung Plan 8.6 (noch unverifiziert)
+
+Quelle jetzt: „Communicating with the Miniserver“ **V17.0 vom 31.3.2026** (der zweite Link unten). Die
+Angaben wurden aus dem Textauszug des PDFs gelesen; Stellen, die die Doku offen lässt, sind im Code mit
+`TODO(verify)` markiert.
+
+Umgesetzt in `apps/gateway/src/clients/`:
+
+- `miniserver-protocol.ts`: 8-Byte-Header (0x03, Kennung, Info, reserviert, uint32 LE Länge; S. 18),
+  Wert-Events (16 Byte UUID + double LE; S. 19f.), Text-Events (S. 20), UUID-Format (S. 21),
+  pwHash = Großbuchstaben von hashAlg("{password}:{userSalt}"), getjwt-Hash = HMAC("{user}:{pwHash}")
+  mit dem Schlüssel aus getkey2 (S. 26), Token-Hash = HMAC("{token}") (S. 27f.), validUntil in
+  Sekunden seit 1.1.2009.
+- `miniserver-crypto.ts`: RSA (ECB, PKCS1, Base64) für „{key}:{iv}“, AES-256-CBC mit Zero-Byte-Padding,
+  Befehle als `jdev/sys/enc/…` mit „salt/{salt}/{cmd}“ bzw. „nextSalt/{prev}/{next}/{cmd}“ (S. 7f., 24f.).
+- `miniserver.ts`: `MiniserverWsClient` (Interface `MiniserverClient` + `LiveValueSource`): Verbinden,
+  Token holen/erneuern/widerrufen, Keepalive, Wiederverbinden mit Backoff, virtuellen Eingang per
+  `jdev/sps/io/{uuid}/{wert}` setzen und über das Wert-Event zurücklesen.
+- WebSocket-Bibliothek: das in Node 22 eingebaute `WebSocket` (keine neue Abhängigkeit). `ws` nur im
+  Simulator für Tests.
+- Verschlüsselung: Gen 1 und Gen 2 ohne TLS nutzen den Schlüsseltausch; die Doku widerspricht sich, ob
+  getjwt ab 11.2 noch verschlüsselt sein muss (S. 26 vs. S. 27), deshalb verschlüsselt der Client ohne
+  TLS immer. Mit TLS (`wss`, nur Gen 2, Zertifikat gilt für Hostnamen) ohne Zusatzverschlüsselung.
+  Die Cloud-DNS-Adresse enthält die Seriennummer; LastPlan speichert keine Seriennummer, `tls` ist
+  deshalb nur bei eigenem Hostnamen sinnvoll.
+
+Am Test-Miniserver zu verifizieren (TODO(verify)):
+
+1. Antwortformat `{"LL":{"control","value","Code"}}` und Feldnamen von getkey2/getjwt.
+2. Schlüssel aus getkey2 als Hex-Bytes für den HMAC; Groß-/Kleinschreibung des HMAC-Ergebnisses.
+3. Format der Antwort auf `getcertificate`; ob `keyexchange` den Base64-Wert URI-codiert erwartet.
+4. Ob die Verbindung nach `getjwt` bereits angemeldet ist.
+5. Welche UUID ein virtueller Eingang im Event meldet (Steuer- oder Zustands-UUID aus LoxAPP3.json);
+   der Client erlaubt dafür eine abweichende `stateUuid`.
+6. Zeitzone von validUntil (angenommen UTC).
 
 ## Quellen
 

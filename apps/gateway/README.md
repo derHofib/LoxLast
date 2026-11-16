@@ -79,4 +79,30 @@ VM. Den Port aus der VM weiterzuleiten ist nicht vorgesehen, weil der Endpunkt k
 
 ## Miniserver
 
-Der Miniserver-Client ist noch ein Mock (Arbeitspaket 8.6), bis ein Test-Miniserver bereitsteht.
+Eigener WebSocket-Client nach der offiziellen Loxone-Doku „Communicating with the Miniserver“
+(V17.0, ADR 0008 Variante B), Code in `src/clients/miniserver*.ts`. **Noch nicht am echten
+Miniserver verifiziert**; alle unsicheren Stellen sind mit `TODO(verify)` markiert.
+
+- Zugang: Web-App bzw. `POST /api/miniserver` (`host`, `user`, `password`, optional `port`, `tls`).
+  Gespeichert verschlüsselt im Credential-Store; nach dem Speichern verbindet das Gateway neu.
+- Ablauf: WebSocket `ws(s)://{host}:{port}/ws/rfc6455` (Subprotokoll `remotecontrol`). Ohne TLS
+  Schlüsseltausch (RSA + AES-256-CBC) und verschlüsselte Token-Befehle. Dann `getkey2` → `getjwt`
+  (Berechtigung App) bzw. bei Wiederverbindung `authwithtoken`, `enablebinstatusupdate`,
+  Keepalive alle 60 s, Token-Erneuerung per `refreshjwt`, beim Trennen `killtoken`.
+- Das Token liegt nur im Speicher. Passwort und Token erscheinen nie in Logs, Status oder Protokoll.
+- Bei falschem Passwort oder Sperre (Close-Code 4003) versucht das Gateway es **nicht** automatisch
+  erneut, damit der Miniserver die Sperre nicht verlängert.
+- Status: `GET /api/miniserver/status` und WebSocket-Nachricht `miniserver.state`.
+- Im Gateway steht `LiveValueSource` (Wert-Events, Status) für die Live-Ansicht bereit.
+- Tests laufen gegen einen Simulator (`src/clients/miniserver-simulator.ts`), nie gegen Geräte.
+
+Live-Test am Test-Miniserver (nur manuell, nie an Kundenanlagen):
+
+```bash
+LOXONE_HOST=192.168.1.77 LOXONE_USER=lastplan pnpm --filter @lastplan/gateway miniserver:probe
+# virtuellen Eingang setzen und zurücklesen:
+… miniserver:probe -- --set <uuid>=<wert> [--state <zustands-uuid>] [--watch 10]
+```
+
+Das Passwort wird verdeckt abgefragt. Optional `LOXONE_PORT`, `LOXONE_TLS=1`,
+`LOXONE_ENCRYPTION=auto|always|never`.
