@@ -135,16 +135,16 @@ Ersetzt den bisherigen `.Loxone`-Dateiparser (ADR 0013). Gelesen wird über `cod
 
 **Vorher vom Auftraggeber:** Zugang zu einem **Test-Miniserver** (nie eine Kundenanlage), eine im Netz erreichbare Test-Wallbox, Angabe zur Netzanbindung (lokal im Anlagennetz oder VPS + VPN).
 
-| AP  | Inhalt                                                                                                                        | Kap.     |
-| --- | ----------------------------------------------------------------------------------------------------------------------------- | -------- |
-| 8.1 | Recherche und ADR: LxCommunicator vs. eigene Implementierung nach offizieller Loxone-Doku „Communicating with the Miniserver“ | 2.3      |
-| 8.2 | Protokoll-Schemas in `packages/protocol` (REST + WebSocket)                                                                   | 8.2, 8.3 |
-| 8.3 | Pairing (Einmalcode → kurzlebiges Token, erneuerbar), Rate-Limiting, CORS nur eigene Origin                                   | 12       |
-| 8.4 | Credential-Store: SQLite, AES-256-GCM, Schlüssel aus `.env`; Änderungsprotokoll                                               | 8.1, 12  |
-| 8.5 | Geräte-Verbindungstest (Modbus TCP/HTTP) mit Registern aus der Bibliothek; Polling, Timeouts, Backoff                         | 8.4      |
-| 8.6 | Miniserver-Client: Verbindung, Status, Werte lesen, virtuelle Eingänge setzen mit Rücklesen                                   | 8.1, 8.4 |
-| 8.7 | Docker-Image, `docker compose`, Profile `local` und `server`                                                                  | 8.5      |
-| 8.8 | Tests: Modbus- und Miniserver-Simulatoren für automatisierte Tests, Integrationstest nur gegen den Test-Miniserver            | 13       |
+| AP  | Inhalt                                                                                                                                                                                                                                                                                   | Kap.     |
+| --- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| 8.1 | Recherche und ADR: LxCommunicator vs. eigene Implementierung nach offizieller Loxone-Doku „Communicating with the Miniserver“                                                                                                                                                            | 2.3      |
+| 8.2 | Protokoll-Schemas in `packages/protocol` (REST + WebSocket)                                                                                                                                                                                                                              | 8.2, 8.3 |
+| 8.3 | Pairing (Einmalcode → kurzlebiges Token, erneuerbar), Rate-Limiting, CORS nur eigene Origin                                                                                                                                                                                              | 12       |
+| 8.4 | Credential-Store: SQLite, AES-256-GCM, Schlüssel aus `.env`; Änderungsprotokoll                                                                                                                                                                                                          | 8.1, 12  |
+| 8.5 | Geräte-Verbindungstest (Modbus TCP/HTTP) mit Registern aus der Bibliothek; Polling, Timeouts, Backoff                                                                                                                                                                                    | 8.4      |
+| 8.6 | Miniserver-Client: Verbindung, Status, Werte lesen, virtuelle Eingänge setzen mit Rücklesen                                                                                                                                                                                              | 8.1, 8.4 |
+| 8.7 | ~~Docker-Image, `docker compose`, Profile `local` und `server`~~ **Entfällt** (Entscheidung Auftraggeber 2026-11-16: Das Gateway läuft nur lokal auf seinem Rechner, kein Server-Betrieb). Vorhandenes `Dockerfile` und `docker-compose.yml` bleiben, werden aber nicht weiter gepflegt. | 8.5      |
+| 8.8 | Tests: Modbus- und Miniserver-Simulatoren für automatisierte Tests, Integrationstest nur gegen den Test-Miniserver                                                                                                                                                                       | 13       |
 
 **Abnahme:** „Verbindung testen“ in der Ladepunkte-Ansicht liefert echte Werte der Test-Wallbox; Gateway verbindet sich mit dem Test-Miniserver.
 
