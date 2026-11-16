@@ -188,6 +188,9 @@ importers:
       '@lastplan/core':
         specifier: workspace:*
         version: link:../core
+      '@lastplan/wallbox-library':
+        specifier: workspace:*
+        version: link:../wallbox-library
 
   packages/protocol:
     dependencies:

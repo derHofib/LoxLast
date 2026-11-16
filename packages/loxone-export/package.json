@@ -12,6 +12,7 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@lastplan/core": "workspace:*"
+    "@lastplan/core": "workspace:*",
+    "@lastplan/wallbox-library": "workspace:*"
   }
 }

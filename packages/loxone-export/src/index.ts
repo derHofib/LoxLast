@@ -8,3 +8,4 @@
 export const LOXONE_EXPORT_STATUS = 'not-implemented' as const;
 
 export * from './generator';
+export * from './config-handover';
