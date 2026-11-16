@@ -55,6 +55,23 @@ erscheint bei jedem Start des Gateways.
 Timeout, Exception, Verbindung schließen, falsche Transaction-/Unit-/Protokoll-ID). Er stellt kein reales Gerät dar;
 das Testmodell `src/test-model.ts` ist frei erfunden und gehört nicht in die Bibliothek.
 
+## Übergabe an Loxone Config (Config-MCP)
+
+Grundlage: ADR 0013. Das Gateway spricht den „LOXONE Config“-MCP an, den Config selbst startet,
+sobald „Config MCP“ in der Titelleiste aktiviert ist. Der Server lauscht nur auf `127.0.0.1`
+im Windows-System, auf dem Config läuft. Läuft Config in einer VM, läuft das Gateway in derselben
+VM. Den Port aus der VM weiterzuleiten ist nicht vorgesehen, weil der Endpunkt keine Anmeldung hat.
+
+- Adresse: `CONFIG_MCP_URL`, Standard `http://127.0.0.1:57707/mcp` (so steht sie in Config).
+  `CONFIG_MCP_URL=off` schaltet die Übergabe ab. Andere Hosts als Loopback lehnt das Gateway beim
+  Start ab.
+- `GET /api/config/status` (mit Token) prüft die Verbindung, ohne etwas zu ändern. Dafür ruft
+  das Gateway `sdk_describe` auf (sind alle benötigten `cfg.*`-Methoden vorhanden?) und führt per
+  `code_query` nur `cfg.get_project()` aus. Antwort: `ok`, `not_configured`, `unreachable`,
+  `no_document`, `methods_missing` oder `error`.
+- Für Tests gibt es einen MCP-Fake (`src/config-mcp/fake-server.ts`), der echtes Streamable HTTP
+  spricht und nur dokumentiertes Verhalten nachbildet.
+
 ## Miniserver
 
 Der Miniserver-Client ist noch ein Mock (Arbeitspaket 8.6), bis ein Test-Miniserver bereitsteht.

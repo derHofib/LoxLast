@@ -9,6 +9,7 @@ import {
 import { Button, Card, FunctionBlock, IoLegend, Notice } from '@lastplan/ui';
 import { TEMPLATE_MISSING_HINT, templateGeneratorAvailable } from '@lastplan/loxone-export';
 import { useNavigate } from 'react-router-dom';
+import { ConfigStatus } from '../../gateway/ConfigStatus';
 import { useChecksStore } from '../../state/checksStore';
 import { useEditorStore } from '../../state/editorStore';
 import { useProjectStore } from '../../state/projectStore';
@@ -160,7 +161,7 @@ export function ExportView() {
               <span>
                 <strong>In bestehendes Projekt einfügen</strong>
                 <span className="export-muted">
-                  Folgt mit Meilenstein 7, benötigt .Loxone-Beispieldateien.
+                  Folgt mit Meilenstein 6: Übergabe an das in Loxone Config geöffnete Projekt.
                 </span>
               </span>
             </label>
@@ -203,6 +204,9 @@ export function ExportView() {
             Vorlagen erzeugen &amp; herunterladen
           </Button>
           <p className="export-muted">Original bleibt unverändert.</p>
+        </Card>
+        <Card title="Loxone Config">
+          <ConfigStatus />
         </Card>
         <Card>
           <LastExport project={project} />

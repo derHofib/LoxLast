@@ -1,9 +1,9 @@
 import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
 
 export interface Sealed {
-  iv: Buffer;
-  tag: Buffer;
-  ciphertext: Buffer;
+  iv: Uint8Array;
+  tag: Uint8Array;
+  ciphertext: Uint8Array;
 }
 
 /** AES-256-GCM. `aad` bindet den Geheimtext an seine ID, damit Zeilen nicht vertauscht werden können. */

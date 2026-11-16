@@ -25,19 +25,42 @@ describe('crypto', () => {
   });
 });
 
+describe('Datenbank (node:sqlite)', () => {
+  it('legt das Schema an, öffnet erneut ohne Migration und lehnt neuere Schemata ab', () => {
+    const path = join(mkdtempSync(join(tmpdir(), 'lp-db-')), 'g.sqlite');
+    const db = openDb(path);
+    const version = () =>
+      (db.prepare('PRAGMA user_version').get() as { user_version: number }).user_version;
+    expect(version()).toBe(1);
+    db.close();
+    const again = openDb(path);
+    again.exec('PRAGMA user_version = 99');
+    again.close();
+    expect(() => openDb(path)).toThrow(/neueren Gateway-Version \(Schema 99\)/);
+  });
+
+  it('Änderungsprotokoll bleibt unveränderlich', () => {
+    const db = openDb(':memory:');
+    db.prepare("INSERT INTO changelog (at, action) VALUES ('t', 'a')").run();
+    expect(() => db.exec('DELETE FROM changelog')).toThrow(/unveränderlich/);
+  });
+});
+
 describe('CredentialStore', () => {
   it('vertauschte Zeilen werden erkannt', () => {
     const db = openDb(':memory:');
     const store = new CredentialStore(db, randomBytes(32));
     store.set('a', 'device', 'A', { password: 'pa' });
     store.set('b', 'device', 'B', { password: 'pb' });
-    const rowA = db
-      .prepare("SELECT iv, tag, ciphertext FROM credentials WHERE id='a'")
-      .get() as Record<string, Buffer>;
+    const rowA = db.prepare("SELECT iv, tag, ciphertext FROM credentials WHERE id='a'").get() as {
+      iv: Uint8Array;
+      tag: Uint8Array;
+      ciphertext: Uint8Array;
+    };
     db.prepare("UPDATE credentials SET iv=?, tag=?, ciphertext=? WHERE id='b'").run(
-      rowA['iv'],
-      rowA['tag'],
-      rowA['ciphertext'],
+      rowA.iv,
+      rowA.tag,
+      rowA.ciphertext,
     );
     expect(() => store.getSecret('b')).toThrow();
     expect(store.getSecret('unbekannt')).toBeUndefined();

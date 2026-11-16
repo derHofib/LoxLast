@@ -1,6 +1,7 @@
 import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { randomBytes } from 'node:crypto';
 import { dirname, join } from 'node:path';
+import { DEFAULT_CONFIG_MCP_URL, parseConfigMcpUrl } from './config-mcp/client';
 
 export type Profile = 'local' | 'server';
 
@@ -15,6 +16,8 @@ export interface GatewayConfig {
   secretKey: Buffer;
   tokenTtlMs: number;
   pairingCodeTtlMs: number;
+  /** Adresse des „LOXONE Config“-MCP (ADR 0013); `undefined`, wenn mit `CONFIG_MCP_URL=off` abgeschaltet. */
+  configMcpUrl: URL | undefined;
 }
 
 export class ConfigError extends Error {}
@@ -87,6 +90,17 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): GatewayConfig 
     );
   }
 
+  // Ohne Angabe gilt die Standardadresse; „off“ schaltet die Übergabe an Config ab.
+  let configMcpUrl: URL | undefined;
+  const rawMcp = env['CONFIG_MCP_URL']?.trim() || DEFAULT_CONFIG_MCP_URL;
+  if (rawMcp.toLowerCase() !== 'off') {
+    try {
+      configMcpUrl = parseConfigMcpUrl(rawMcp);
+    } catch (e) {
+      throw new ConfigError((e as Error).message);
+    }
+  }
+
   return {
     profile,
     // Lokal nur Loopback (Kap. 8.5); Server-Profil lauscht im Container auf allen Schnittstellen.
@@ -97,5 +111,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): GatewayConfig 
     secretKey,
     tokenTtlMs: Number(env['GATEWAY_TOKEN_TTL_MIN'] ?? 60) * 60_000,
     pairingCodeTtlMs: Number(env['GATEWAY_PAIRING_CODE_TTL_MIN'] ?? 10) * 60_000,
+    configMcpUrl,
   };
 }

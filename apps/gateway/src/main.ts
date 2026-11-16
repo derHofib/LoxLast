@@ -7,7 +7,8 @@ import { ModbusTcpClient } from './clients/modbus-tcp';
 import { defaultLibraryDir, loadLibraryDir } from './library';
 import { CredentialStore } from './credential-store';
 import { PairingService } from './pairing';
-import { buildServer } from './server';
+import { buildServer, GATEWAY_VERSION } from './server';
+import { createConfigMcpClient } from './config-mcp/client';
 
 try {
   const config = loadConfig();
@@ -26,10 +27,18 @@ try {
     pairing,
     credentials: new CredentialStore(db, config.secretKey),
     changelog: new Changelog(db),
+    configMcp: config.configMcpUrl
+      ? createConfigMcpClient(config.configMcpUrl, GATEWAY_VERSION)
+      : undefined,
   });
   const address = await app.listen({ host: config.host, port: config.port });
   const { code, expiresAt } = pairing.issueCode();
   console.log(`LastPlan-Gateway (${config.profile}) läuft auf ${address}`);
+  console.log(
+    config.configMcpUrl
+      ? `Loxone Config (MCP): ${config.configMcpUrl.href}`
+      : 'Loxone Config (MCP): abgeschaltet (CONFIG_MCP_URL=off)',
+  );
   console.log(`Wallbox-Bibliothek: ${library.size} Modell(e) aus ${libraryDir}`);
   console.log(
     `Kopplungscode: ${code}  (gültig bis ${expiresAt.toLocaleTimeString('de-DE')}, einmalig)`,

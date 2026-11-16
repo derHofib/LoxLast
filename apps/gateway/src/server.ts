@@ -12,6 +12,7 @@ import {
   WS_AUTH_TIMEOUT_MS,
   WS_PATH,
   type ChangelogResponse,
+  type ConfigMcpStatusResponse,
   type ErrorCode,
   type ErrorResponse,
   type HealthResponse,
@@ -25,6 +26,8 @@ import type { Changelog } from './changelog';
 import { tcpProbe } from './clients/tcp-probe';
 import type { MiniserverClient, ModbusClient } from './clients/types';
 import { runDeviceTest } from './device-test';
+import type { ConfigMcpClient } from './config-mcp/client';
+import { checkConfigMcp } from './config-mcp/status';
 import type { ModelLibrary } from './library';
 import type { CredentialStore } from './credential-store';
 import type { IssuedToken, PairingService } from './pairing';
@@ -47,6 +50,8 @@ export interface ServerDeps {
   probe?: (host: string, port: number) => Promise<number>;
   /** Geräte-Tests pro Minute und IP. Standard 30. */
   deviceTestsPerMinute?: number;
+  /** Zugang zum „LOXONE Config“-MCP (ADR 0013). Fehlt er, meldet der Status „nicht eingerichtet“. */
+  configMcp?: ConfigMcpClient | undefined;
   /** Anfragen pro Minute und IP (global). Standard 120. */
   rateLimitPerMinute?: number;
   /** Pairing-Versuche pro Minute und IP. Standard 5. */
@@ -302,6 +307,17 @@ export async function buildServer(deps: ServerDeps): Promise<FastifyInstance> {
   } else {
     app.post('/api/devices/test', { preHandler: requireAuth }, notImplemented);
   }
+  // Übergabe an Config (ADR 0013): vorerst nur lesende Verbindungsprüfung.
+  const configMcp = deps.configMcp;
+  if (configMcp) app.addHook('onClose', async () => configMcp.close());
+  app.get(
+    '/api/config/status',
+    {
+      preHandler: requireAuth,
+      config: { rateLimit: { max: 30, timeWindow: '1 minute' } },
+    },
+    async (): Promise<ConfigMcpStatusResponse> => checkConfigMcp(configMcp),
+  );
   app.get('/api/projects/:id/live', { preHandler: requireAuth }, notImplemented);
   app.post('/api/projects/:id/parameters', { preHandler: requireAuth }, notImplemented);
   app.post(

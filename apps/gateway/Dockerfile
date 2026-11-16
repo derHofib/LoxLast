@@ -6,7 +6,7 @@ WORKDIR /repo
 COPY . .
 RUN pnpm install --frozen-lockfile --filter @lastplan/gateway...
 RUN pnpm --filter @lastplan/gateway build
-# Nur Laufzeit-Abhängigkeiten (inkl. nativem better-sqlite3) in einen eigenen Ordner
+# Nur Laufzeit-Abhängigkeiten in einen eigenen Ordner (SQLite ist in Node eingebaut)
 RUN pnpm --filter @lastplan/gateway deploy --prod /out
 
 FROM node:22-bookworm-slim

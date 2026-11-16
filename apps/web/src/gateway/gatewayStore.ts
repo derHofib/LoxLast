@@ -1,7 +1,9 @@
 import {
+  ConfigMcpStatusResponseSchema,
   DeviceTestResponseSchema,
   ErrorResponseSchema,
   TokenResponseSchema,
+  type ConfigMcpStatusResponse,
   type DeviceTestRequest,
   type DeviceTestResponse,
 } from '@lastplan/protocol';
@@ -146,6 +148,24 @@ export async function requestDeviceTest(req: DeviceTestRequest): Promise<DeviceT
       body: JSON.stringify(req),
     });
     const parsed = DeviceTestResponseSchema.safeParse(body);
+    if (!parsed.success) throw new GatewayError('Antwort des Gateways ist ungültig.', null);
+    return parsed.data;
+  } catch (error) {
+    if (error instanceof GatewayError && error.status === 401) forgetGateway();
+    throw error;
+  }
+}
+
+/** Verbindung des Gateways zu Loxone Config prüfen (GET /api/config/status, ADR 0013). */
+export async function requestConfigStatus(): Promise<ConfigMcpStatusResponse> {
+  const session = activeSession();
+  if (!session) throw new GatewayError('Gateway nicht gekoppelt oder Kopplung abgelaufen.', 401);
+  try {
+    const body = await call(session.baseUrl, '/api/config/status', {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${session.token}` },
+    });
+    const parsed = ConfigMcpStatusResponseSchema.safeParse(body);
     if (!parsed.success) throw new GatewayError('Antwort des Gateways ist ungültig.', null);
     return parsed.data;
   } catch (error) {

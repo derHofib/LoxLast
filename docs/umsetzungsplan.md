@@ -6,22 +6,22 @@ Dieser Plan zerlegt die Meilensteine 2–10 in Arbeitspakete (AP), nennt Abhäng
 
 ## Überblick
 
-| MS  | Inhalt                                                                    | Hängt ab von          | Liefert der Auftraggeber vorher                               | Umfang   |
-| --- | ------------------------------------------------------------------------- | --------------------- | ------------------------------------------------------------- | -------- |
-| 1   | Grundgerüst                                                               | –                     | –                                                             | erledigt |
-| 2   | Kernlogik: Berechnung, Prüfregeln, Simulation, Schieflast-Optimierung     | 1                     | –                                                             | erledigt |
-| 3   | UI-Basis: Komponenten, App-Rahmen, Projektübersicht, IndexedDB, Undo/Redo | 1 (2 für Prüfanzeige) | –                                                             | L        |
-| 4   | Struktur-Ansicht (Cluster-Editor)                                         | 2, 3                  | –                                                             | L        |
-| 5   | Ladepunkte-Ansicht + Wallbox-Bibliothek                                   | 2, 3                  | **Modbus-Doku ABL eM4**, Liste häufigster Modelle             | L        |
-| 6   | Export Modus A (Vorlagen)                                                 | 5                     | **aus Loxone Config exportierte Modbus-Vorlage**              | M        |
-| 7   | `.Loxone`-Analyse, danach Export Modus B                                  | 6                     | **2–3 `.Loxone`-Dateien mit Lastmanagement + Config-Version** | L        |
-| 8   | Gateway                                                                   | 1 (5 für Geräte-Test) | **Zugang zu einem Test-Miniserver**, erreichbare Test-Wallbox | L        |
-| 9   | Live-Ansicht                                                              | 7, 8                  | Test-Miniserver mit eingespieltem Export aus MS 7             | M        |
-| 10  | Feinschliff: Dark Mode, Performance, Barrierefreiheit, Doku               | alle                  | Abnahme-Feedback                                              | M        |
+| MS  | Inhalt                                                                    | Hängt ab von          | Liefert der Auftraggeber vorher                                | Umfang   |
+| --- | ------------------------------------------------------------------------- | --------------------- | -------------------------------------------------------------- | -------- |
+| 1   | Grundgerüst                                                               | –                     | –                                                              | erledigt |
+| 2   | Kernlogik: Berechnung, Prüfregeln, Simulation, Schieflast-Optimierung     | 1                     | –                                                              | erledigt |
+| 3   | UI-Basis: Komponenten, App-Rahmen, Projektübersicht, IndexedDB, Undo/Redo | 1 (2 für Prüfanzeige) | –                                                              | L        |
+| 4   | Struktur-Ansicht (Cluster-Editor)                                         | 2, 3                  | –                                                              | L        |
+| 5   | Ladepunkte-Ansicht + Wallbox-Bibliothek                                   | 2, 3                  | **Modbus-Doku ABL eM4**, Liste häufigster Modelle              | L        |
+| 6   | Übergabe an Config über den Config-MCP (ADR 0013)                         | 5, 8                  | **Testprojekt in Config mit aktiviertem Config MCP**, ABL-Doku | L        |
+| 7   | Bestehendes Projekt aus Config einlesen (über den Config-MCP)             | 6                     | Testprojekt mit 2–3 Wallboxen und Lastmanagement               | M        |
+| 8   | Gateway                                                                   | 1 (5 für Geräte-Test) | **Zugang zu einem Test-Miniserver**, erreichbare Test-Wallbox  | L        |
+| 9   | Live-Ansicht                                                              | 6, 8                  | Test-Miniserver mit eingespieltem Ergebnis aus MS 6            | M        |
+| 10  | Feinschliff: Dark Mode, Performance, Barrierefreiheit, Doku               | alle                  | Abnahme-Feedback                                               | M        |
 
 Umfang: S = klein, M = mittel, L = groß (relativ, keine Zeitzusage).
 
-**Kritischer Pfad:** 2 → 3 → 5 → 6 → 7 → 9. Die Lieferungen des Auftraggebers liegen alle auf diesem Pfad. Am meisten Zeit spart es, sie **jetzt** zu sammeln, auch wenn sie erst ab MS 5 gebraucht werden.
+**Kritischer Pfad:** 2 → 3 → 5 → 6 → 9 (MS 7 hängt an MS 6, liegt aber nicht mehr auf dem kritischen Pfad). Die Lieferungen des Auftraggebers liegen alle auf diesem Pfad. Am meisten Zeit spart es, sie **jetzt** zu sammeln, auch wenn sie erst ab MS 5 gebraucht werden.
 
 **Parallelisierbar:** MS 4 und 5 (nach 3), MS 8 (ab MS 2 jederzeit; nur der Wallbox-Verbindungstest braucht MS 5).
 
@@ -97,36 +97,39 @@ Offene Fachfragen (werden zu Beginn von MS 2 gestellt, sonst als ADR angenommen)
 
 **Abnahme:** E2E: CSV-Import; Modell ohne vollständige Register wird als „unvollständig“ angezeigt und blockiert den Export.
 
-## Meilenstein 6 – Export Modus A (Vorlagen)
+## Meilenstein 6 – Übergabe an Config (Config-MCP)
 
-**Vorher vom Auftraggeber:** mindestens eine aus Loxone Config exportierte Modbus-Vorlage (am besten für die ABL eM4), dazu die Config-Version.
+Umgestellt am 2026-11-16 nach ADR 0013. LastPlan erzeugt keine Loxone-Dateien mehr selbst. Stattdessen setzt das Gateway den geprüften Plan über den „LOXONE Config“-MCP (`127.0.0.1:57707`) in der geöffneten Config um. Das Gateway läuft dafür auf demselben Windows-System wie Config, beim Auftraggeber also in der VM.
 
-| AP  | Inhalt                                                                                                                                                | Kap.     |
-| --- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
-| 6.1 | Analyse der Beispielvorlage, Ergebnis in `docs/loxone-file-analysis/vorlagen.md`, ADR zur XML-Erzeugung                                               | 7.1      |
-| 6.2 | Generator in `packages/loxone-export`, Golden-File-Test gegen die echte Vorlage                                                                       | 7.1, 7.3 |
-| 6.3 | ZIP mit Ordnerstruktur und `LIESMICH.txt` (Importschritte)                                                                                            | 7.1      |
-| 6.4 | Export-Ansicht: Exportziel, „Wird erzeugt“-Zusammenfassung, Sperre bei offenen Fehlern mit Blocker-Liste, Logik-Vorschau mit Funktionsbaustein-Karten | 11.3     |
-| 6.5 | `ExportRecord` mit `structureHash` speichern                                                                                                          | 7.2      |
+**Vorher vom Auftraggeber:**
 
-**Abnahme:** Auftraggeber importiert die erzeugte Vorlage in Loxone Config (Checkliste in `docs/`). E2E: Projekt → Fehler beheben → Export Modus A.
+- ein Testprojekt in Config, in dem „Config MCP“ aktiviert ist,
+- die ABL-Doku (5.D),
+- die Antworten auf die Leseabfragen aus ADR 0013, „Vor der Umsetzung zu klären“.
 
-## Meilenstein 7 – `.Loxone`-Analyse und Export Modus B
+| AP  | Inhalt                                                                                                                                                                                                         | Kap.      |
+| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| 6.1 | Gateway: MCP-Client (Streamable HTTP, nur `127.0.0.1`), Verbindungsprüfung nur lesend (`sdk_describe`: Pflichtmethoden vorhanden?, `get_project`), MCP-Fake für Tests                                          | 8         |
+| 6.2 | Web: Gateway-Status „Config erreichbar / nicht erreichbar / Methode fehlt“ in der Export-Ansicht                                                                                                               | 11.3      |
+| 6.3 | Klärung am Testprojekt (nur lesend): Lastmanager-Baustein, Eigenschaften von Modbus-TCP-Server, Gerät und Sensor (`get_block_properties`, `get_property_options`); Ergebnis in `docs/loxone-config-mcp/`       | 7.1       |
+| 6.4 | Skript-Erzeuger statt `ExportGenerator`: aus Projekt und Bibliothek ein `code_run`-Skript; alle Typ-Schlüssel und Eigenschafts-IDs zur Laufzeit aus Config, Register nur aus der Bibliothek, gesperrt bei TODO | 7.1       |
+| 6.5 | Ablauf: Vorschau „Wird angelegt“, Liste der von Hand anzulegenden Modbus-TCP-Server (IP, Port, Unit-ID), Ausführen, `validate_project`, Zurücklesen, „Rückgängig“ (`undo`), Speichern nur auf Klick            | 7.2, 11.3 |
+| 6.6 | Wiedererkennung über Seite mit Kennung `lastplan:<projectId>:<structureHash>`, ersetzen statt duplizieren; `ExportRecord`                                                                                      | 7.2       |
+| 6.7 | Rückfall Weg B: Plan als JSON und Skript als Datei, mit Hinweis „nur Test- oder eigene Projekte“                                                                                                               | 7.1       |
 
-**Vorher vom Auftraggeber:** 2–3 `.Loxone`-Dateien mit bestehendem Lastmanagement (2–3 Wallboxen), verwendete Config-Version. Ideal: dieselbe Anlage einmal ohne und einmal mit Lastmanagement.
+**Abnahme:** Auftraggeber lässt die Übergabe am Testprojekt laufen und prüft das Ergebnis in Config per Checkliste. Die Logik wird zusätzlich in der Config-Simulation (`sim_*`) geprüft. E2E und Gateway-Tests laufen gegen den MCP-Fake.
 
-| AP  | Inhalt                                                                                                                                                                                                            | Kap.      |
-| --- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 7.1 | Dateianalyse (Format, Kompression, Encoding, Seiten, Bausteine, Verbindungen, Räume, Kategorien, UUIDs, Versionskennung) → `docs/loxone-file-analysis/`                                                           | 7.2       |
-| 7.2 | ADR: XML-Verarbeitung (DOMParser vs. fast-xml-parser) mit Nachweis, dass Reihenfolge und Bytes erhalten bleiben                                                                                                   | 2.3       |
-| 7.3 | Roundtrip-Test: einlesen und unverändert schreiben → byte-gleich                                                                                                                                                  | 7.3       |
-| 7.4 | Versionserkennung; nicht unterstützte Version blockiert den Export                                                                                                                                                | 7.2       |
-| 7.5 | Erzeugung der LastPlan-Seite (Lastmanager, Gruppen-Limits, Wallbox-Bausteine, Modbus-Geräte, virtuelle Eingänge für alle Stellgrößen), Kennung `lastplan:<projectId>:<structureHash>`, Ersetzen statt Duplizieren | 7.2       |
-| 7.6 | Auto-Layout der Bausteine auf der Seite                                                                                                                                                                           | 7.2       |
-| 7.7 | Diff-Ansicht neu/ersetzt/unverändert, Download `<name>_lastplan_<datum>.Loxone`                                                                                                                                   | 7.2, 11.3 |
-| 7.8 | Golden-File-Tests je unterstützter Config-Version in `fixtures/loxone/<version>/`                                                                                                                                 | 7.3       |
+## Meilenstein 7 – Bestehendes Projekt aus Config einlesen
 
-**Abnahme:** Auftraggeber öffnet das Ergebnis in Loxone Config und bestätigt per Checkliste. Risiko: Ist das Format nicht zuverlässig beherrschbar, bleibt Modus B gesperrt und Modus A ist der Weg.
+Ersetzt den bisherigen `.Loxone`-Dateiparser (ADR 0013). Gelesen wird über `code_query`, ohne dass LastPlan das Dateiformat kennt.
+
+| AP  | Inhalt                                                                          | Kap.      |
+| --- | ------------------------------------------------------------------------------- | --------- |
+| 7.1 | Lesen: Seiten, Bausteine, Modbus-Geräte und -Sensoren, Verbindungen             | 7.2       |
+| 7.2 | Abgleich mit dem LastPlan-Projekt: Was ist vorhanden, was fehlt, was weicht ab? | 7.2       |
+| 7.3 | Diff-Ansicht neu/ersetzt/unverändert vor der Übergabe                           | 7.2, 11.3 |
+
+**Abnahme:** Am Testprojekt mit 2–3 Wallboxen werden vorhandene Geräte erkannt, und ein erneuter Lauf dupliziert nichts.
 
 ## Meilenstein 8 – Gateway
 
@@ -173,24 +176,24 @@ Offene Fachfragen (werden zu Beginn von MS 2 gestellt, sonst als ADR angenommen)
 
 ## Was der Auftraggeber wann liefern muss (Kap. 15)
 
-| Unterlage                                                     | Spätestens vor | Wofür                                               |
-| ------------------------------------------------------------- | -------------- | --------------------------------------------------- |
-| Modbus-Dokumentation ABL eM4 + Liste der häufigsten Modelle   | MS 5           | Register der Bibliothek (nichts aus dem Gedächtnis) |
-| Aus Loxone Config exportierte Modbus-Vorlage + Config-Version | MS 6           | Struktur der Vorlagen                               |
-| 2–3 `.Loxone`-Dateien mit Lastmanagement + Config-Version     | MS 7           | Dateianalyse, Golden Files                          |
-| Zugang Test-Miniserver + Test-Wallbox im Netz                 | MS 8           | Gateway- und Live-Tests                             |
+| Unterlage                                                            | Spätestens vor | Wofür                                               |
+| -------------------------------------------------------------------- | -------------- | --------------------------------------------------- |
+| Modbus-Dokumentation ABL eM4 + Liste der häufigsten Modelle          | MS 5           | Register der Bibliothek (nichts aus dem Gedächtnis) |
+| Testprojekt in Config mit aktiviertem Config MCP (in der Windows-VM) | MS 6           | Übergabe an Config (ADR 0013)                       |
+| Testprojekt mit 2–3 Wallboxen und Lastmanagement                     | MS 7           | Einlesen und Abgleich                               |
+| Zugang Test-Miniserver + Test-Wallbox im Netz                        | MS 8           | Gateway- und Live-Tests                             |
 
 Dateien bitte in den Projekt-Chat hochladen oder im Repo unter `fixtures/` bzw. `docs/wallbox-sources/` ablegen. Kundendaten in `.Loxone`-Dateien (Namen, Adressen, Passwörter) vorher entfernen oder Bescheid geben, dann werden die Dateien nicht ins öffentliche Repo eingecheckt.
 
 ## Arbeitsweise je Meilenstein
 
 1. Kurze Rückfragen (höchstens fünf), sonst Annahmen als ADR.
-2. Umsetzung auf eigenem Branch, ein Pull Request je Meilenstein (bei MS 7 ggf. zwei: Analyse, dann Modus B).
+2. Umsetzung auf eigenem Branch, ein Pull Request je Meilenstein .
 3. Abschluss: CI grün, Zusammenfassung, offene Fragen. Weiter erst nach Freigabe.
 
 ## Risiken
 
-- **Loxone-Projektdatei (MS 7):** Format ist nicht öffentlich dokumentiert. Gegenmaßnahme: nur auf Basis echter Dateien, Roundtrip-Test, Versionssperre, Modus A als Rückfallebene.
+- **Config-MCP (MS 6, 7):** Die Schnittstelle ist neu (Tech-Preview) und kann sich mit jeder Config-Version ändern. Gegenmaßnahme: beim Verbinden `sdk_describe` lesen und die Übergabe sperren, wenn eine erwartete Methode fehlt; Typ-Schlüssel und Eigenschafts-IDs nie fest im Code. Modbus-TCP-Server sind über den MCP nicht anlegbar und bleiben ein Handgriff in Config.
 - **Unvollständige Herstellerdoku:** Modelle bleiben „unvollständig“ und für den Export gesperrt, statt geraten zu werden.
 - **Öffentliches Repo:** Testdateien mit Kundendaten dürfen nicht eingecheckt werden (siehe oben).
 - **Miniserver-Anbindung:** Nur offizielle Schnittstelle; falls LxCommunicator nicht passt, eigene Implementierung nach Loxone-Doku (ADR in MS 8).

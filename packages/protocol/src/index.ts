@@ -13,3 +13,4 @@ export * from './miniserver';
 export * from './parameters';
 export * from './changelog';
 export * from './live';
+export * from './config-mcp';
