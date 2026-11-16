@@ -207,7 +207,8 @@ describe('buildHandoverPlan', () => {
       'WB_LP02',
     ]);
     const ec = plan.manualSteps.find((s) => s.block === 'wallbox-enable')!;
-    expect(ec.title).toBe('Ladefreigabe (Ec)');
+    expect(ec.title).toBe('Ladefreigabe (Ec), nur bei Bedarf');
+    expect(ec.items[0]).toContain('invertiert');
     expect(ec.items.slice(1)).toEqual(plan.wallboxes.map((w) => w.title));
     expect(plan.pending.length).toBeGreaterThan(0);
   });
@@ -383,6 +384,7 @@ function fakeCfg(
       return { success: true };
     }),
     connect_blocks: rec('connect_blocks'),
+    set_connector_inverted: rec('set_connector_inverted'),
     insert_object: rec('insert_object', () => ({ object: { uuid: next() }, success: true })),
     add_object_ref: rec('add_object_ref', () => ({ block: { uuid: next() }, success: true })),
     arrange_page: rec('arrange_page', () => ({ arranged: true, overflowPages: [] })),
@@ -440,6 +442,7 @@ describe('renderHandoverScript', () => {
         'add_page',
         'add_block',
         'set_block_property',
+        'set_connector_inverted',
         'connect_blocks',
         'insert_object',
         'add_object_ref',
@@ -484,6 +487,15 @@ describe('renderHandoverScript', () => {
     const site = res.created['site'];
     const props = calls.filter(([m]) => m === 'set_block_property').map(([, p]) => p);
     expect(props).toContainEqual({ uuid: site, property_id: 3054, value: 0 });
+    // Ec (Schlüssel allow) jeder Wallbox invertiert: offen = Laden erlaubt
+    const inverted = calls.filter(([m]) => m === 'set_connector_inverted').map(([, p]) => p);
+    expect(inverted).toEqual(
+      plan.wallboxes.map((w) => ({
+        block_uuid: res.created[w.key],
+        connector_key: 'allow',
+        inverted: true,
+      })),
+    );
     expect(props).toContainEqual({ uuid: site, property_id: 416, value: 117.3 });
     expect(props).toContainEqual({ uuid: res.created['vi:site'], property_id: 1020, value: false });
     const wires = calls.filter(([m]) => m === 'connect_blocks').map(([, p]) => p);
