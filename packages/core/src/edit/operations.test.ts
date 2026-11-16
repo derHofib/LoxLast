@@ -16,6 +16,7 @@ import {
   nextChargePointLabel,
   suggestNextIp,
   updateChargePoints,
+  confirmChargePointFields,
   updateCluster,
   updateGroup,
   updateSite,
@@ -138,6 +139,34 @@ describe('Anlegen', () => {
 });
 
 describe('Ändern', () => {
+  it('ein gesetzter Wert hebt den Vermerk „fehlt“ auf, auch bei gleichem Wert', () => {
+    const p = makeSampleProject();
+    const cp = p.chargePoints[0]!;
+    cp.missingFields = ['minA', 'phases'];
+    updateChargePoints(p, [cp.id], { minA: cp.minA });
+    expect(cp.missingFields).toEqual(['phases']);
+    updateChargePoints(p, [cp.id], { label: 'X' });
+    expect(cp.missingFields).toEqual(['phases']);
+    updateChargePoints(p, [cp.id], { phases: 3 });
+    expect(cp).not.toHaveProperty('missingFields');
+    cp.missingFields = ['minA'];
+    updateChargePoints(p, [cp.id], { missingFields: undefined, maxA: 16 });
+    expect(cp).not.toHaveProperty('missingFields');
+  });
+
+  it('confirmChargePointFields bestätigt Platzhalter, ohne Werte zu ändern', () => {
+    const p = makeSampleProject();
+    const [a, b] = p.chargePoints;
+    a!.missingFields = ['minA', 'phases'];
+    b!.missingFields = ['minA'];
+    const before = { a: a!.minA, b: b!.minA };
+    expect(confirmChargePointFields(p, [a!.id, b!.id, 'x'], ['minA'])).toBe(2);
+    expect(a!.missingFields).toEqual(['phases']);
+    expect(b).not.toHaveProperty('missingFields');
+    expect({ a: a!.minA, b: b!.minA }).toEqual(before);
+    expect(confirmChargePointFields(p, [a!.id], ['fuseA'])).toBe(0);
+  });
+
   it('Felder setzen und optionale Felder mit undefined entfernen', () => {
     const p = makeSampleProject();
     const fleet = p.groups[1]!;
@@ -160,6 +189,22 @@ describe('Ändern', () => {
     expect(updateChargePoints(p, ids2, { minA: 8, room: 'TG' })).toBe(2);
     expect(p.chargePoints.map((c) => c.minA)).toEqual([8, 8, 6]);
     expect(p.chargePoints[2]).not.toHaveProperty('room');
+  });
+
+  it('Netzwerk-Patch wird je Ladepunkt feldweise eingemischt', () => {
+    const p = makeSampleProject();
+    const ips = p.chargePoints.map((c) => c.network.ip);
+    const both = p.chargePoints.slice(0, 2).map((c) => c.id);
+    updateChargePoints(p, both, { network: { port: 1502, unitId: 7 } });
+    expect(p.chargePoints.map((c) => c.network.ip)).toEqual(ips);
+    expect(p.chargePoints.slice(0, 2).map((c) => [c.network.port, c.network.unitId])).toEqual([
+      [1502, 7],
+      [1502, 7],
+    ]);
+    updateChargePoints(p, both, { network: { unitId: undefined } });
+    expect(p.chargePoints[0]!.network).not.toHaveProperty('unitId');
+    expect(p.chargePoints[0]!.network.port).toBe(1502);
+    expectConsistent(p);
   });
 
   it('Lösungsvorschlag anwenden', () => {

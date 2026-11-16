@@ -1,6 +1,13 @@
 import type { ProjectChange } from '../calc/changes';
 import { newId } from '../ids';
-import type { ChargePoint, Cluster, Group, Project } from '../model';
+import type {
+  ChargePoint,
+  ChargePointDataField,
+  Cluster,
+  Group,
+  NetworkEndpoint,
+  Project,
+} from '../model';
 
 /**
  * Bearbeitungsoperationen für Struktur- und Ladepunkte-Ansicht.
@@ -191,9 +198,14 @@ export function addChargePoint(project: Project, input: NewChargePointInput): Ch
 
 export type ClusterPatch = { [K in keyof Omit<Cluster, 'id'>]?: Cluster[K] | undefined };
 export type GroupPatch = { [K in keyof Omit<Group, 'id'>]?: Group[K] | undefined };
+/**
+ * Änderung an Ladepunkten. `network` wird je Ladepunkt FELDWEISE eingemischt (nicht ersetzt),
+ * damit bei Massenbearbeitung z. B. nur der Port gesetzt wird und die IPs erhalten bleiben.
+ * `unitId: undefined` entfernt die Unit-ID.
+ */
 export type ChargePointPatch = {
-  [K in keyof Omit<ChargePoint, 'id'>]?: ChargePoint[K] | undefined;
-};
+  [K in keyof Omit<ChargePoint, 'id' | 'network'>]?: ChargePoint[K] | undefined;
+} & { network?: { [K in keyof NetworkEndpoint]?: NetworkEndpoint[K] | undefined } };
 export type SitePatch = { [K in keyof Project['site']]?: Project['site'][K] | undefined };
 
 export function updateSite(project: Project, patch: SitePatch): void {
@@ -226,7 +238,37 @@ export function updateChargePoints(
   let count = 0;
   for (const cp of project.chargePoints) {
     if (!set.has(cp.id)) continue;
-    assign(cp, patch);
+    const { network, ...rest } = patch;
+    assign(cp, rest);
+    if (network) assign(cp.network, network);
+    // Ein gesetzter Wert gilt als nachgetragen; der Platzhalter-Vermerk entfällt.
+    if (cp.missingFields && !('missingFields' in patch)) {
+      const left = cp.missingFields.filter((f) => !(f in rest));
+      if (left.length === 0) Reflect.deleteProperty(cp, 'missingFields');
+      else if (left.length !== cp.missingFields.length) cp.missingFields = left;
+    }
+    count++;
+  }
+  return count;
+}
+
+/**
+ * Bestätigt Platzhalter-Werte: entfernt die Felder aus `missingFields`, ohne Werte zu ändern
+ * (auch bei Mehrfachauswahl mit unterschiedlichen Werten).
+ */
+export function confirmChargePointFields(
+  project: Project,
+  ids: readonly string[],
+  fields: readonly ChargePointDataField[],
+): number {
+  const set = new Set(ids);
+  let count = 0;
+  for (const cp of project.chargePoints) {
+    if (!set.has(cp.id) || !cp.missingFields) continue;
+    const left = cp.missingFields.filter((f) => !fields.includes(f));
+    if (left.length === cp.missingFields.length) continue;
+    if (left.length === 0) Reflect.deleteProperty(cp, 'missingFields');
+    else cp.missingFields = left;
     count++;
   }
   return count;

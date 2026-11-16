@@ -4,6 +4,7 @@ import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
 import { useProjectStore } from '../state/projectStore';
 import { repository } from '../storage/db';
 import { command } from '../state/history';
+import { ChargePointsTab } from '../features/chargepoints/ChargePointsTab';
 
 export const PROJECT_TABS = [
   { id: 'struktur', label: 'Struktur' },
@@ -13,7 +14,6 @@ export const PROJECT_TABS = [
 ] as const;
 
 const PLACEHOLDER: Record<string, string> = {
-  ladepunkte: 'Ladepunkt-Tabelle folgt in Meilenstein 4.',
   export: 'Loxone-Export folgt in Meilenstein 6.',
   live: 'Live-Werte folgen in Meilenstein 8 (benötigt das Gateway).',
 };
@@ -114,6 +114,8 @@ export function ProjectShell() {
             <Suspense fallback={<Card>Struktur-Ansicht lädt …</Card>}>
               <StructureView />
             </Suspense>
+          ) : tab === 'ladepunkte' ? (
+            <ChargePointsTab />
           ) : (
             <Card>{PLACEHOLDER[tab]}</Card>
           )}

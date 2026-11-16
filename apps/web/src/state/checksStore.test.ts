@@ -4,6 +4,8 @@ import { sampleProject } from '../test-fixtures';
 import { useChecksStore, startChecks } from './checksStore';
 import { updateChargePointsCommand } from './commands';
 import { useEditorStore } from './editorStore';
+import { resetToBundledLibrary, useLibraryStore } from '../library/libraryStore';
+import { bundledCatalog } from '../library/catalog';
 import { useProjectStore } from './projectStore';
 
 const testCatalog = catalogFromModels([
@@ -69,5 +71,19 @@ describe('Prüfung im Store', () => {
     stop();
     vi.advanceTimersByTime(1000);
     expect(useChecksStore.getState().pending).toBe(true);
+  });
+
+  it('prüft mit dem neuen Katalog neu, sobald die Bibliothek wechselt', () => {
+    try {
+      useProjectStore.getState().open(sampleProject());
+      stop = startChecks();
+      expect(ruleIds()).toContain('MODEL_INCOMPLETE');
+
+      useLibraryStore.setState({ source: 'nachgeladen', version: 'x', catalog: testCatalog });
+      expect(ruleIds()).not.toContain('MODEL_INCOMPLETE');
+    } finally {
+      resetToBundledLibrary();
+      expect(useLibraryStore.getState().catalog).toBe(bundledCatalog);
+    }
   });
 });

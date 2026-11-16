@@ -3,6 +3,8 @@ import {
   addCluster,
   addGroup,
   applyChangesInPlace,
+  confirmChargePointFields,
+  applyImport,
   deleteElements,
   duplicateElements,
   moveChargePoints,
@@ -13,6 +15,7 @@ import {
   updateCluster,
   updateGroup,
   updateSite,
+  type ChargePointDataField,
   type ChargePointPatch,
   type ClusterPatch,
   type FixProposal,
@@ -22,6 +25,7 @@ import {
   type NewGroupInput,
   type Project,
   type SitePatch,
+  type ValidImportRow,
 } from '@lastplan/core';
 import { command, type Command } from './history';
 
@@ -132,3 +136,37 @@ export function duplicateCommand(
 /** Lösungsvorschlag der Prüfung übernehmen – ein Undo-Schritt (Kap. 5). */
 export const applyFixCommand = (fix: FixProposal): Command =>
   command(fix.label, (d) => applyChangesInPlace(d, fix.changes));
+
+/**
+ * CSV-Import (Kap. 11.2): alle fehlerfreien Zeilen in einem Undo-Schritt.
+ * IDs entstehen vorab, damit die Ansicht die neuen Ladepunkte auswählen kann.
+ */
+export function importChargePointsCommand(rows: readonly ValidImportRow[]): {
+  command: Command;
+  ids: string[];
+} {
+  const ids = rows.map(() => newId());
+  return {
+    ids,
+    command: command(
+      plural(rows.length, '1 Ladepunkt importiert', 'Ladepunkte importiert'),
+      (d) => {
+        let i = 0;
+        applyImport(d, rows, () => ids[i++] ?? newId());
+      },
+    ),
+  };
+}
+
+/** Platzhalter-Werte bestätigen (Vermerk „fehlt“ entfällt, Werte bleiben). */
+export function confirmChargePointFieldsCommand(
+  ids: readonly string[],
+  fields: readonly ChargePointDataField[],
+): Command {
+  return command(
+    ids.length === 1 ? 'Angabe bestätigen' : `Angaben bei ${ids.length} Ladepunkten bestätigen`,
+    (draft) => {
+      confirmChargePointFields(draft, ids, fields);
+    },
+  );
+}

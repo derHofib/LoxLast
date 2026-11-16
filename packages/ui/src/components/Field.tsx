@@ -55,9 +55,9 @@ function FieldShell({ label, hint, error, change, unit, id, children }: FieldShe
 
 interface FieldBase {
   label: string;
-  hint?: string;
-  error?: string;
-  change?: FieldChange;
+  hint?: string | undefined;
+  error?: string | undefined;
+  change?: FieldChange | undefined;
 }
 
 export type TextFieldProps = FieldBase & Omit<InputHTMLAttributes<HTMLInputElement>, 'size'>;

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } fro
 import { Link, useNavigate } from 'react-router-dom';
 import { repository, type ProjectSummary } from '../storage/db';
 import { downloadProject, parseProjectJson, withFreshId } from '../storage/exchange';
+import { LibraryPanel } from '../library/LibraryPanel';
 
 const dateFmt = new Intl.DateTimeFormat('de-DE', { dateStyle: 'medium', timeStyle: 'short' });
 
@@ -194,6 +195,7 @@ export function ProjectList() {
           ))}
         </ul>
       )}
+      <LibraryPanel />
     </main>
   );
 }

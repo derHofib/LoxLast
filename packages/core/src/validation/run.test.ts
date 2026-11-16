@@ -56,3 +56,28 @@ describe('runChecks', () => {
     expect(median).toBeLessThan(50);
   });
 });
+
+describe('CP_DATA_MISSING', () => {
+  it('meldet fehlende Angaben als Fehler, fasst gleiche Lücken zusammen und sperrt den Export', () => {
+    const p = makeSampleProject();
+    const [a, b, c] = p.chargePoints;
+    a!.missingFields = ['minA', 'phases'];
+    b!.missingFields = ['phases', 'minA'];
+    c!.missingFields = ['fuseA'];
+    const result = runChecks(p, catalogFromModels([TEST_MODEL]));
+    const missing = result.findings.filter((f) => f.ruleId === 'CP_DATA_MISSING');
+    expect(missing.map((f) => f.message)).toEqual([
+      'Angaben fehlen bei 2 Ladepunkten (LP01, LP02): Mindeststrom, Phasen – bitte in der Ladepunkte-Ansicht nachtragen oder bestätigen',
+      'Angaben fehlen bei LP03: Absicherung – bitte in der Ladepunkte-Ansicht nachtragen oder bestätigen',
+    ]);
+    expect(missing[0]?.targetIds).toEqual([a!.id, b!.id]);
+    expect(missing.every((f) => f.blocksExport)).toBe(true);
+  });
+
+  it('ohne Vermerk keine Meldung', () => {
+    const p = makeSampleProject();
+    p.chargePoints[0]!.missingFields = [];
+    const result = runChecks(p, catalogFromModels([TEST_MODEL]));
+    expect(result.findings.some((f) => f.ruleId === 'CP_DATA_MISSING')).toBe(false);
+  });
+});
