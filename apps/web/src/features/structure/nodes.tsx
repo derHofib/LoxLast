@@ -15,12 +15,21 @@ import {
   StatusBadge,
 } from '@lastplan/ui';
 import { useCallback, type DragEvent, type MouseEvent, type ReactNode } from 'react';
+import type { Project } from '@lastplan/core';
 import { bundledCatalog } from '../../library/catalog';
 import { useEditorStore } from '../../state/editorStore';
 import { useProjectStore } from '../../state/projectStore';
 import { topFinding, useStructureContext } from './context';
 import { useDndStore } from './dndStore';
-import { canDrop, dropCommand, payloadFrom } from './dropRules';
+import {
+  acceptsKind,
+  canDrop,
+  dropCommand,
+  kindOf,
+  pasteTarget,
+  payloadFrom,
+  type DragPayload,
+} from './dropRules';
 
 /** Inhalte der React-Flow-Knoten. Jeder Knoten ist ein echter Button (Auswahl, Fokus, Drag-Quelle). */
 
@@ -66,38 +75,52 @@ function useDragSource(id: string) {
 
 type DropState = 'none' | 'valid' | 'blocked' | 'over';
 
-/** Drop-Ziel: Zustand für die Hervorhebung und Ereignisse. `accepts` sagt, welche Nutzlast überhaupt gemeint ist. */
-function useDropTarget(id: string, accepts: (kind: string) => boolean) {
+/**
+ * Drop-Ziel. Der Drop gilt dem nächsten passenden Element: eine Gruppe auf einer Gruppe landet im
+ * Cluster dieser Gruppe, ein Ladepunkt auf einem Ladepunkt in dessen Gruppe. Hervorgehoben wird
+ * das tatsächliche Ziel; Karten, die als Ziel der gezogenen Art gelten, zeigen gültig/gesperrt.
+ */
+function useDropTarget(id: string) {
   const state = useDndStore((s): DropState => {
-    if (!s.drag || !accepts(s.drag.kind)) return 'none';
+    if (!s.drag) return 'none';
     const project = useProjectStore.getState().project;
-    if (!project || !canDrop(project, s.drag, id).ok) return 'blocked';
+    if (!project || !acceptsKind(kindOf(project, id), s.drag.kind)) return 'none';
+    if (!canDrop(project, s.drag, id).ok) return 'blocked';
     return s.over === id ? 'over' : 'valid';
   });
   const { announce } = useStructureContext();
+
+  function resolve(): { targetId: string; payload: DragPayload; project: Project } | undefined {
+    const { drag } = useDndStore.getState();
+    const project = useProjectStore.getState().project;
+    if (!drag || !project) return undefined;
+    const targetId = pasteTarget(project, drag.kind, id);
+    return targetId !== undefined && canDrop(project, drag, targetId).ok
+      ? { targetId, payload: drag, project }
+      : undefined;
+  }
+
   return {
     state,
     handlers: {
       onDragOver: (e: DragEvent) => {
-        if (state === 'none' || state === 'blocked') return;
+        const target = resolve();
+        if (!target) return;
         e.preventDefault();
         e.dataTransfer.dropEffect = 'move';
-        if (state !== 'over') useDndStore.getState().setOver(id);
-      },
-      onDragLeave: () => {
-        if (useDndStore.getState().over === id) useDndStore.getState().setOver(null);
+        if (useDndStore.getState().over !== target.targetId)
+          useDndStore.getState().setOver(target.targetId);
       },
       onDrop: (e: DragEvent) => {
-        const { drag, end } = useDndStore.getState();
-        const project = useProjectStore.getState().project;
-        end();
-        if (!drag || !project) return;
-        const cmd = dropCommand(project, drag, id);
+        const target = resolve();
+        useDndStore.getState().end();
+        if (!target) return;
+        const cmd = dropCommand(target.project, target.payload, target.targetId);
         if (!cmd) return;
         e.preventDefault();
         useProjectStore.getState().execute(cmd);
-        useEditorStore.getState().select(drag.ids);
-        announce(`${cmd.label}`);
+        useEditorStore.getState().select(target.payload.ids);
+        announce(cmd.label);
       },
     },
   };
@@ -178,7 +201,7 @@ export function SiteView({ id }: { id: string }) {
   const tabIndex = useTabIndex(id);
   const onClick = useSelect(id);
   const { findingsByTarget, analysis } = useStructureContext();
-  const drop = useDropTarget(id, (k) => k === 'cluster');
+  const drop = useDropTarget(id);
   if (!site) return null;
   return (
     <Box id={id} dropState={drop.state} handlers={drop.handlers} selected={selected}>
@@ -210,7 +233,7 @@ export function ClusterView({ id }: { id: string }) {
   const onClick = useSelect(id);
   const source = useDragSource(id);
   const { findingsByTarget } = useStructureContext();
-  const drop = useDropTarget(id, (k) => k === 'group' || k === 'cluster');
+  const drop = useDropTarget(id);
   if (!cluster) return null;
   const findings = findingsByTarget.get(id);
   const error = findings?.some((f) => f.severity === 'error') ?? false;
@@ -242,7 +265,7 @@ export function GroupView({ id }: { id: string }) {
   const onClick = useSelect(id);
   const source = useDragSource(id);
   const { findingsByTarget } = useStructureContext();
-  const drop = useDropTarget(id, (k) => k === 'chargePoint');
+  const drop = useDropTarget(id);
   if (!group) return null;
   return (
     <Box id={id} dropState={drop.state} handlers={drop.handlers} selected={selected}>
@@ -274,6 +297,7 @@ export function ChipView({ id }: { id: string }) {
   const tabIndex = useTabIndex(id);
   const onClick = useSelect(id);
   const source = useDragSource(id);
+  const drop = useDropTarget(id);
   const { findingsByTarget } = useStructureContext();
   if (!cp) return null;
   const findings = findingsByTarget.get(id);
@@ -283,7 +307,7 @@ export function ChipView({ id }: { id: string }) {
     : 'Modell fehlt';
   const phase = cp.phases === 1 ? `1ph ${gridPhaseOf(cp.phaseRotation, 1)}` : cp.phaseRotation;
   return (
-    <div className="structure-chipwrap nopan nodrag" data-cut={cut} {...source}>
+    <div className="structure-chipwrap nopan nodrag" data-cut={cut} {...source} {...drop.handlers}>
       <ChargePointChip
         label={cp.label}
         model={model}

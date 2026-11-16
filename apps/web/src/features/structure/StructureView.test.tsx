@@ -340,6 +340,40 @@ describe('Drag & Drop', () => {
   });
 });
 
+describe('Drag & Drop auf das nächste passende Ziel', () => {
+  const dt = () => ({ setData: () => undefined, effectAllowed: '', dropEffect: '' });
+  it('Gruppe auf eine Gruppe landet im Cluster dieser Gruppe, Ladepunkt auf Ladepunkt in dessen Gruppe', async () => {
+    const p = sampleProject();
+    p.clusters.push({ id: 'zweiter', name: 'UV-TG2', limitA: 63 });
+    p.groups.push({ id: 'gaeste', name: 'Gäste', clusterId: 'zweiter', priority: 3 });
+    view = renderStructure(p);
+    await button('Cluster UV-TG2 auswählen');
+    const wrap = (name: RegExp) =>
+      screen.getByRole('button', { name }).closest('.structure-chipwrap') as HTMLElement;
+
+    fireEvent.dragStart(screen.getByRole('button', { name: 'Gruppe Flotte auswählen' }), {
+      dataTransfer: dt(),
+    });
+    const gaesteBox = screen
+      .getByRole('button', { name: 'Gruppe Gäste auswählen' })
+      .closest('.structure-box') as HTMLElement;
+    fireEvent.dragOver(gaesteBox, { dataTransfer: dt() });
+    expect(
+      screen.getByRole('button', { name: 'Cluster UV-TG2 auswählen' }).closest('.structure-box'),
+    ).toHaveAttribute('data-drop', 'over');
+    fireEvent.drop(gaesteBox, { dataTransfer: dt() });
+    expect(project().groups.find((g) => g.id === project().groups[1]!.id)?.clusterId).toBe(
+      'zweiter',
+    );
+
+    // Ladepunkt auf einen Ladepunkt in anderer Gruppe: Ziel ist dessen Gruppe
+    fireEvent.dragStart(wrap(/^LP01/), { dataTransfer: dt() });
+    fireEvent.dragOver(wrap(/^LP03/), { dataTransfer: dt() });
+    fireEvent.drop(wrap(/^LP03/), { dataTransfer: dt() });
+    expect(project().chargePoints[0]!.groupId).toBe(project().groups[1]!.id);
+  });
+});
+
 describe('Eigenschaften', () => {
   it('Netzanschluss: Zahlenfeld mit Einheit, „Geändert“-Zustand, Übernahme beim Verlassen', async () => {
     view = renderStructure(sampleProject());

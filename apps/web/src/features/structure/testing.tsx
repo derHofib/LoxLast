@@ -4,27 +4,11 @@ import { MemoryRouter } from 'react-router-dom';
 import { startChecks, useChecksStore } from '../../state/checksStore';
 import { useEditorStore } from '../../state/editorStore';
 import { useProjectStore } from '../../state/projectStore';
+import { installDomShims } from '../../test-dom-shims';
 import { StructureView } from './StructureView';
 import { useDndStore } from './dndStore';
 
 /** Hilfen für die Komponententests der Struktur-Ansicht (jsdom hat kein Layout und kein ResizeObserver). */
-
-export function installDomShims(): void {
-  class RO {
-    observe() {}
-    unobserve() {}
-    disconnect() {}
-  }
-  globalThis.ResizeObserver = RO as unknown as typeof ResizeObserver;
-  class Matrix {
-    m22: number;
-    constructor(transform?: string) {
-      const scale = /scale\(([\d.]+)\)/.exec(transform ?? '');
-      this.m22 = scale ? Number(scale[1]) : 1;
-    }
-  }
-  (globalThis as { DOMMatrixReadOnly?: unknown }).DOMMatrixReadOnly = Matrix;
-}
 
 export interface Rendered extends ReturnType<typeof render> {
   stopChecks: () => void;

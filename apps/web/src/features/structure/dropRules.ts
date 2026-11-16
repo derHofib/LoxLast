@@ -63,6 +63,12 @@ const TARGET_KIND: Record<MovableKind, ElementKind[]> = {
   cluster: ['cluster', 'site'],
 };
 
+/** Ist ein Element dieser Art überhaupt ein Ziel für die Nutzlast? */
+export const acceptsKind = (
+  targetKind: ElementKind | undefined,
+  payloadKind: MovableKind,
+): boolean => targetKind !== undefined && TARGET_KIND[payloadKind].includes(targetKind);
+
 const TARGET_NAME: Record<MovableKind, string> = {
   chargePoint: 'eine Gruppe',
   group: 'einen Cluster',

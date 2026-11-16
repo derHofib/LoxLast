@@ -14,6 +14,7 @@ import '@xyflow/react/dist/style.css';
 import { useEffect, useMemo, useRef, type KeyboardEvent } from 'react';
 import { isEditableTarget } from '../../state/useShortcuts';
 import { useEditorStore } from '../../state/editorStore';
+import { useDndStore } from './dndStore';
 import type { LayoutResult } from './layout';
 import { ChipView, ClusterView, GroupView, SiteView } from './nodes';
 import { navigate, type ElementKind, type NavKey, type Tree } from './tree';
@@ -150,7 +151,15 @@ function Inner({ layout, tree }: { layout: LayoutResult; tree: Tree }) {
 
   return (
     // Pfeiltasten werden hier gesammelt, die Knoten selbst sind echte Buttons.
-    <div className="structure-canvas" onKeyDown={onKeyDown}>
+    <div
+      className="structure-canvas"
+      onKeyDown={onKeyDown}
+      onDragOver={(e) => {
+        // Über leerer Fläche: kein Ziel mehr hervorheben
+        if (!(e.target as HTMLElement).closest('.structure-box, .structure-chipwrap'))
+          useDndStore.getState().setOver(null);
+      }}
+    >
       <ReactFlow
         nodes={nodes}
         edges={edges}
