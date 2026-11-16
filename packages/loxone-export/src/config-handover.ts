@@ -430,7 +430,7 @@ function emptyPlan(project: Project, blockers: string[]): HandoverPlan {
 /**
  * Skript für `code_run` (ein Undo-Schritt). Daten gehen als JSON-Literal hinein, nie als
  * zusammengesetzter Code. Verwendete `cfg`-Methoden laut `sdk_describe`: get_tree,
- * get_block_properties, get_block, add_page, add_block, set_block_property, insert_object,
+ * get_insertable_types, get_block_properties, get_block, add_page, add_block, set_block_property, insert_object,
  * add_object_ref, connect_blocks, arrange_page, validate_project. Alles, was fehlen kann
  * (Miniserver, Modbusserver), wird vor der ersten Änderung geprüft. Gibt die angelegten UUIDs
  * je Plan-Schlüssel zurück.
@@ -521,21 +521,39 @@ export function renderHandoverScript(plan: HandoverScriptInput): string {
 ${SCRIPT_BODY}`;
 }
 
-// TODO(verify): Typ-Schlüssel des Miniservers im Peripheriebaum ist nicht belegt; das Skript
-// sucht ihn über den Typnamen und bricht ab, wenn es nicht genau einen findet (vor jeder Änderung).
+// TODO(verify): Typ-Schlüssel des Miniservers im Peripheriebaum ist nicht belegt. Belegt ist nur
+// der Pfad aus der Erkundung: Projekt / <Miniserver> / Netzwerkperipherie / Modbusserver. Das Skript
+// nimmt deshalb zuerst einen Knoten, dessen Typ „Miniserver“ enthält, sonst das einzige Gerät
+// direkt unter der Projektwurzel. Ist das nicht eindeutig, bricht es vor jeder Änderung ab und
+// nennt, was unter der Wurzel steht. Den Ort für virtuelle Eingänge fragt es mit
+// get_insertable_types ab, statt ihn anzunehmen.
 const SCRIPT_BODY = String.raw`
 const created = {};
 const uuidOf = (r) => (r && r.block && r.block.uuid) || (r && r.object && r.object.uuid) || (r && r.uuid);
 
-const miniservers = [];
+const tree = cfg.get_tree({});
+let miniservers = [];
 const walk = (n) => {
-  if (n.uuid && n.type && /miniserver/i.test(n.type) && n.isDevice) miniservers.push(n.uuid);
+  if (n.uuid && n.type && /miniserver/i.test(n.type) && n.isDevice) miniservers.push(n);
   for (const c of n.children || []) walk(c);
 };
-const tree = cfg.get_tree({});
 for (const r of tree.roots) walk(r);
+const topLevel = [];
+for (const r of tree.roots) for (const c of r.children || []) topLevel.push(c);
+if (miniservers.length === 0) miniservers = topLevel.filter((c) => c.uuid && c.isDevice);
 if (miniservers.length !== 1) {
-  throw new Error('Genau ein Miniserver erwartet, gefunden: ' + miniservers.length);
+  const seen = topLevel.map((c) => c.name + ' (' + c.type + (c.isDevice ? ', Gerät' : '') + ')').join('; ');
+  throw new Error('Genau ein Miniserver erwartet, gefunden: ' + miniservers.length + '. Unter der Projektwurzel: ' + (seen || 'nichts'));
+}
+const miniserver = miniservers[0];
+
+// Ort für virtuelle Eingänge: der Miniserver selbst oder einer seiner direkten Unterknoten.
+let virtualParent;
+if (plan.virtualInputs.length > 0) {
+  const canHold = (n) => n.uuid && cfg.get_insertable_types({ parent_uuid: n.uuid }).types.some((t) => t.type === plan.types.virtualInput);
+  const places = [miniserver].concat(miniserver.children || []);
+  for (const n of places) if (canHold(n)) { virtualParent = n.uuid; break; }
+  if (!virtualParent) throw new Error('Kein Ort für virtuelle Eingänge unter dem Miniserver „' + miniserver.name + '“ gefunden.');
 }
 
 // Modbusserver über ihre Adresse finden (vom Nutzer angelegt).
@@ -555,7 +573,7 @@ const twice = wanted.filter((a) => serverByAddress[a] && serverByAddress[a].leng
 if (missing.length > 0) throw new Error('Modbusserver fehlt in Config: ' + missing.join(', '));
 if (twice.length > 0) throw new Error('Modbusserver mehrfach mit gleicher Adresse: ' + twice.join(', '));
 
-const page = uuidOf(cfg.add_page({ name: plan.pageName, context_uuid: miniservers[0] }));
+const page = uuidOf(cfg.add_page({ name: plan.pageName, context_uuid: miniserver.uuid }));
 created.page = page;
 
 for (const l of plan.loadManagers) {
@@ -589,7 +607,7 @@ for (const w of plan.wallboxManagers) {
 }
 
 for (const v of plan.virtualInputs) {
-  const vi = uuidOf(cfg.insert_object({ type: plan.types.virtualInput, parent_uuid: miniservers[0], name: v.name }));
+  const vi = uuidOf(cfg.insert_object({ type: plan.types.virtualInput, parent_uuid: virtualParent, name: v.name }));
   created[v.key] = vi;
   cfg.set_block_property({ uuid: vi, property_id: plan.props.virtualInputDigital, value: false });
   const inst = uuidOf(cfg.add_object_ref({ source_uuid: vi, page_uuid: page }));
