@@ -6,9 +6,8 @@ import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/
  *
  * Belegt durch die Selbstbeschreibung des Servers (skill_read, abgerufen 2026-11-16):
  * LoxoneConfig.exe startet den Server selbst, sobald „Config MCP“ aktiviert ist; Transport
- * Streamable HTTP auf `127.0.0.1:57707`, der genaue Endpunkt steht im Plugin-Manifest.
- * TODO(verify): Pfad des Endpunkts – deshalb gibt es keinen Standardwert, `CONFIG_MCP_URL` ist
- * vollständig anzugeben.
+ * Streamable HTTP auf `127.0.0.1:57707`, der genaue Endpunkt steht im Plugin-Manifest. Laut
+ * Eintrag in der Config des Auftraggebers (2026-11-16): `http://127.0.0.1:57707/mcp`.
  *
  * Skripte laufen über `code_query` (nur lesend) und `code_run` (ändernd). Ergebnis eines Skripts:
  * `{ value, logs }`, bei Fehler `{ success: false, error, message, logs }`.
@@ -41,6 +40,9 @@ export class ConfigMcpUnreachableError extends Error {
     this.name = 'ConfigMcpUnreachableError';
   }
 }
+
+/** Adresse von „Config MCP“ laut Config des Auftraggebers (2026-11-16). */
+export const DEFAULT_CONFIG_MCP_URL = 'http://127.0.0.1:57707/mcp';
 
 const LOOPBACK = new Set(['127.0.0.1', 'localhost', '[::1]']);
 

@@ -62,7 +62,7 @@ describe('Export-Ansicht', () => {
       'disabled',
       true,
     );
-    expect(screen.getByText(/Folgt mit Meilenstein 7/)).toBeTruthy();
+    expect(screen.getByText(/Folgt mit Meilenstein 6/)).toBeTruthy();
     expect(screen.getByText('Original bleibt unverändert.')).toBeTruthy();
   });
 

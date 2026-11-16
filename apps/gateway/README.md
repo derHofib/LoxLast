@@ -62,8 +62,9 @@ sobald „Config MCP“ in der Titelleiste aktiviert ist. Der Server lauscht nur
 im Windows-System, auf dem Config läuft. Läuft Config in einer VM, läuft das Gateway in derselben
 VM. Den Port aus der VM weiterzuleiten ist nicht vorgesehen, weil der Endpunkt keine Anmeldung hat.
 
-- `CONFIG_MCP_URL` setzen, zum Beispiel `http://127.0.0.1:57707/…`. Den genauen Pfad aus dem
-  Plugin-Manifest übernehmen. Andere Hosts als Loopback lehnt das Gateway beim Start ab.
+- Adresse: `CONFIG_MCP_URL`, Standard `http://127.0.0.1:57707/mcp` (so steht sie in Config).
+  `CONFIG_MCP_URL=off` schaltet die Übergabe ab. Andere Hosts als Loopback lehnt das Gateway beim
+  Start ab.
 - `GET /api/config/status` (mit Token) prüft die Verbindung, ohne etwas zu ändern. Dafür ruft
   das Gateway `sdk_describe` auf (sind alle benötigten `cfg.*`-Methoden vorhanden?) und führt per
   `code_query` nur `cfg.get_project()` aus. Antwort: `ok`, `not_configured`, `unreachable`,

@@ -75,8 +75,7 @@ export async function checkConfigMcp(
   if (!client) {
     return response({
       status: 'not_configured',
-      message:
-        'Keine Verbindung zu Loxone Config eingerichtet. Im Gateway CONFIG_MCP_URL setzen (Adresse von „Config MCP“).',
+      message: 'Die Übergabe an Loxone Config ist im Gateway abgeschaltet (CONFIG_MCP_URL=off).',
     });
   }
   let server: ConfigMcpStatusResponse['server'] = null;

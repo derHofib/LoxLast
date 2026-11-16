@@ -37,7 +37,7 @@ try {
   console.log(
     config.configMcpUrl
       ? `Loxone Config (MCP): ${config.configMcpUrl.href}`
-      : 'Loxone Config (MCP): nicht eingerichtet (CONFIG_MCP_URL)',
+      : 'Loxone Config (MCP): abgeschaltet (CONFIG_MCP_URL=off)',
   );
   console.log(`Wallbox-Bibliothek: ${library.size} Modell(e) aus ${libraryDir}`);
   console.log(

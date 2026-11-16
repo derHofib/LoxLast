@@ -34,9 +34,10 @@ describe('parseConfigMcpUrl', () => {
     expect(() => parseConfigMcpUrl('kein url')).toThrow(/keine gültige Adresse/);
   });
 
-  it('loadConfig: CONFIG_MCP_URL optional, ungültig bricht ab', () => {
+  it('loadConfig: Standardadresse, „off“ schaltet ab, ungültig bricht ab', () => {
     const base = { GATEWAY_SECRET_KEY: 'a'.repeat(64) };
-    expect(loadConfig(base).configMcpUrl).toBeUndefined();
+    expect(loadConfig(base).configMcpUrl?.href).toBe('http://127.0.0.1:57707/mcp');
+    expect(loadConfig({ ...base, CONFIG_MCP_URL: 'off' }).configMcpUrl).toBeUndefined();
     expect(
       loadConfig({ ...base, CONFIG_MCP_URL: 'http://127.0.0.1:57707/mcp' }).configMcpUrl?.href,
     ).toBe('http://127.0.0.1:57707/mcp');

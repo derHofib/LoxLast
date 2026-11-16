@@ -5,7 +5,7 @@ import { z } from 'zod';
  *
  * Nur lesend: `sdk_describe` und ein `code_query` mit `cfg.get_project()`.
  * - `ok`: Config erreichbar, Projekt geöffnet, alle benötigten SDK-Methoden vorhanden.
- * - `not_configured`: `CONFIG_MCP_URL` ist im Gateway nicht gesetzt.
+ * - `not_configured`: im Gateway abgeschaltet (`CONFIG_MCP_URL=off`).
  * - `unreachable`: keine Verbindung (Config läuft nicht oder „Config MCP“ ist aus).
  * - `no_document`: Config erreichbar, aber kein Projekt geöffnet.
  * - `methods_missing`: Die Config bietet eine benötigte SDK-Methode nicht an (andere Version).
