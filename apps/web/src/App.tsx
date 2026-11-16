@@ -4,6 +4,7 @@ import { AppHeader } from './components/AppHeader';
 import { ProjectShell } from './components/ProjectShell';
 import { Components } from './pages/Components';
 import { ProjectList } from './pages/ProjectList';
+import { startLibraryUpdates } from './library/update';
 import { startChecks } from './state/checksStore';
 import { useShortcuts } from './state/useShortcuts';
 import { startAutosave, type SaveStatus } from './storage/autosave';
@@ -17,6 +18,9 @@ export function App() {
   useShortcuts();
   useEffect(() => startAutosave(repository, (s) => setSaveStatus(s)), []);
   useEffect(() => startChecks(), []);
+  useEffect(() => {
+    void startLibraryUpdates();
+  }, []);
 
   return (
     <HashRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>

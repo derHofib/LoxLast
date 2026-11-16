@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { runChecks, type CheckResult, type ModelCatalog, type Project } from '@lastplan/core';
-import { bundledCatalog } from '../library/catalog';
+import { useLibraryStore } from '../library/libraryStore';
 import { useEditorStore } from './editorStore';
 import { useProjectStore } from './projectStore';
 
@@ -20,23 +20,30 @@ export const useChecksStore = create<ChecksState>(() => ({ result: null, pending
 
 /**
  * Startet die Prüfung für das jeweils geöffnete Projekt. Räumt außerdem Auswahl und
- * Zwischenablage auf, wenn Elemente verschwinden. Rückgabe: Stopp-Funktion.
+ * Zwischenablage auf, wenn Elemente verschwinden. Ohne `catalog` gilt der jeweils aktuelle
+ * Katalog der Bibliothek; wechselt er (Nachladen), wird neu geprüft. Rückgabe: Stopp-Funktion.
  */
-export function startChecks(
-  catalog: ModelCatalog = bundledCatalog,
-  debounceMs = CHECK_DEBOUNCE_MS,
-): () => void {
+export function startChecks(catalog?: ModelCatalog, debounceMs = CHECK_DEBOUNCE_MS): () => void {
   let timer: ReturnType<typeof setTimeout> | undefined;
   let current: Project | null = useProjectStore.getState().project;
 
   const run = () => {
     timer = undefined;
+    const activeCatalog = catalog ?? useLibraryStore.getState().catalog;
     useChecksStore.setState({
-      result: current ? runChecks(current, catalog) : null,
+      result: current ? runChecks(current, activeCatalog) : null,
       pending: false,
     });
   };
   run();
+
+  const unsubscribeLibrary = catalog
+    ? undefined
+    : useLibraryStore.subscribe((state, previous) => {
+        if (state.catalog === previous.catalog) return;
+        if (timer !== undefined) clearTimeout(timer);
+        run();
+      });
 
   const unsubscribe = useProjectStore.subscribe((state) => {
     if (state.project === current) return;
@@ -54,6 +61,7 @@ export function startChecks(
 
   return () => {
     unsubscribe();
+    unsubscribeLibrary?.();
     if (timer !== undefined) clearTimeout(timer);
   };
 }
