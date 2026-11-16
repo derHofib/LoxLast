@@ -4,6 +4,7 @@ import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
 import { useProjectStore } from '../state/projectStore';
 import { repository } from '../storage/db';
 import { command } from '../state/history';
+import { StructureView } from '../features/structure/StructureView';
 
 export const PROJECT_TABS = [
   { id: 'struktur', label: 'Struktur' },
@@ -13,7 +14,6 @@ export const PROJECT_TABS = [
 ] as const;
 
 const PLACEHOLDER: Record<string, string> = {
-  struktur: 'Struktur-Ansicht folgt in Meilenstein 4.',
   ladepunkte: 'Ladepunkt-Tabelle folgt in Meilenstein 4.',
   export: 'Loxone-Export folgt in Meilenstein 6.',
   live: 'Live-Werte folgen in Meilenstein 8 (benötigt das Gateway).',
@@ -77,7 +77,7 @@ export function ProjectShell() {
   if (!project) return null;
 
   return (
-    <main className="app-main">
+    <main className={tab === 'struktur' ? 'app-main app-main--wide' : 'app-main'}>
       <Tabs
         label="Projektbereiche"
         tabs={PROJECT_TABS}
@@ -106,7 +106,7 @@ export function ProjectShell() {
               />
             </Card>
           ) : null}
-          <Card>{PLACEHOLDER[tab]}</Card>
+          {tab === 'struktur' ? <StructureView /> : <Card>{PLACEHOLDER[tab]}</Card>}
         </div>
       </Tabs>
     </main>

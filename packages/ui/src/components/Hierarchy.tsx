@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { ButtonHTMLAttributes, ReactNode } from 'react';
 
 /** Netzanschluss: 4 px grüne Oberkante. */
 export function GridNode({ label, children }: { label: string; children?: ReactNode }) {
@@ -41,24 +41,27 @@ export function GroupNode({ name, children }: { name: string; children?: ReactNo
   );
 }
 
-/** Ladepunkt-Chip: grau, Label + Modell + Phase rechts. */
+/** Ladepunkt-Chip: grau, Label + Modell + Phase rechts. Weitere Button-Attribute (tabIndex, data-*, onKeyDown …) werden durchgereicht. */
 export function ChargePointChip({
   label,
   model,
   phase,
   selected,
   onClick,
+  className,
+  ...rest
 }: {
   label: string;
   model: string;
   phase: string;
   selected?: boolean;
-  onClick?: () => void;
-}) {
+  onClick?: ButtonHTMLAttributes<HTMLButtonElement>['onClick'];
+} & Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'onClick' | 'children' | 'type'>) {
   return (
     <button
       type="button"
-      className={`lp-chip${selected ? ' lp-chip--selected' : ''}`}
+      {...rest}
+      className={`lp-chip${selected ? ' lp-chip--selected' : ''}${className ? ` ${className}` : ''}`}
       aria-pressed={selected ?? false}
       onClick={onClick}
     >
