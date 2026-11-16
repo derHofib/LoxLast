@@ -4,7 +4,7 @@ import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
 import { useProjectStore } from '../state/projectStore';
 import { repository } from '../storage/db';
 import { command } from '../state/history';
-import { ChargePointsView } from '../features/chargepoints/ChargePointsView';
+import { ChargePointsTab } from '../features/chargepoints/ChargePointsTab';
 
 export const PROJECT_TABS = [
   { id: 'struktur', label: 'Struktur' },
@@ -107,7 +107,7 @@ export function ProjectShell() {
               />
             </Card>
           ) : null}
-          {tab === 'ladepunkte' ? <ChargePointsView /> : <Card>{PLACEHOLDER[tab]}</Card>}
+          {tab === 'ladepunkte' ? <ChargePointsTab /> : <Card>{PLACEHOLDER[tab]}</Card>}
         </div>
       </Tabs>
     </main>

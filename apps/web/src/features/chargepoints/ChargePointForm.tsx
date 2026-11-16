@@ -1,5 +1,5 @@
-import type { ChargePoint, ChargePointPatch, Project } from '@lastplan/core';
-import { suggestNextIp } from '@lastplan/core';
+import type { ChargePoint, ChargePointDataField, ChargePointPatch, Project } from '@lastplan/core';
+import { CP_DATA_FIELDS, suggestNextIp } from '@lastplan/core';
 import {
   Button,
   NumberField,
@@ -11,7 +11,7 @@ import {
   TextField,
 } from '@lastplan/ui';
 import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
-import { updateChargePointsCommand } from '../../state/commands';
+import { confirmChargePointFieldsCommand, updateChargePointsCommand } from '../../state/commands';
 import { useProjectStore } from '../../state/projectStore';
 import {
   ADVANCED_FIELDS,
@@ -158,6 +158,50 @@ export function ChargePointForm({ project, cps, index, onNext, focusNonce }: Cha
 
   const lockedHint = multi ? 'Bei Mehrfachauswahl gesperrt (je Ladepunkt eindeutig)' : undefined;
 
+  /** Vermerk für Angaben, die beim Import fehlten (Wert ist nur Platzhalter). */
+  const missingNote = (key: FieldKey): ReactNode => {
+    if (!(CP_DATA_FIELDS as readonly string[]).includes(key)) return null;
+    const field = key as ChargePointDataField;
+    const affected = cps.filter((c) => c.missingFields?.includes(field));
+    if (affected.length === 0) return null;
+    return (
+      <p className="cp-form__missing">
+        <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
+          <path
+            d="M7 1.5 13 12H1z"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.6"
+            strokeLinejoin="round"
+          />
+          <path
+            d="M7 5.5v3M7 10v.01"
+            stroke="currentColor"
+            strokeWidth="1.6"
+            strokeLinecap="round"
+          />
+        </svg>
+        {multi
+          ? `Fehlt bei ${affected.length} von ${cps.length} – Platzhalter, bitte nachtragen`
+          : 'Fehlt – Platzhalter, bitte nachtragen'}{' '}
+        <Button
+          size="sm"
+          variant="text"
+          onClick={() =>
+            execute(
+              confirmChargePointFieldsCommand(
+                affected.map((c) => c.id),
+                [field],
+              ),
+            )
+          }
+        >
+          Wert bestätigen
+        </Button>
+      </p>
+    );
+  };
+
   const text = (key: Exclude<FieldKey, 'vendor'>, extra?: ReactNode) => {
     const common = commonValue(cps, key);
     const locked = multi && UNIQUE_FIELDS.includes(key);
@@ -196,6 +240,7 @@ export function ChargePointForm({ project, cps, index, onNext, focusNonce }: Cha
           <TextField {...props} />
         )}
         {extra}
+        {missingNote(key)}
       </div>
     );
   };
@@ -237,6 +282,7 @@ export function ChargePointForm({ project, cps, index, onNext, focusNonce }: Cha
             </option>
           ))}
         </SelectField>
+        {missingNote(key)}
       </div>
     );
   };

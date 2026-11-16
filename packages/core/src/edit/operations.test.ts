@@ -16,6 +16,7 @@ import {
   nextChargePointLabel,
   suggestNextIp,
   updateChargePoints,
+  confirmChargePointFields,
   updateCluster,
   updateGroup,
   updateSite,
@@ -138,6 +139,34 @@ describe('Anlegen', () => {
 });
 
 describe('Ändern', () => {
+  it('ein gesetzter Wert hebt den Vermerk „fehlt“ auf, auch bei gleichem Wert', () => {
+    const p = makeSampleProject();
+    const cp = p.chargePoints[0]!;
+    cp.missingFields = ['minA', 'phases'];
+    updateChargePoints(p, [cp.id], { minA: cp.minA });
+    expect(cp.missingFields).toEqual(['phases']);
+    updateChargePoints(p, [cp.id], { label: 'X' });
+    expect(cp.missingFields).toEqual(['phases']);
+    updateChargePoints(p, [cp.id], { phases: 3 });
+    expect(cp).not.toHaveProperty('missingFields');
+    cp.missingFields = ['minA'];
+    updateChargePoints(p, [cp.id], { missingFields: undefined, maxA: 16 });
+    expect(cp).not.toHaveProperty('missingFields');
+  });
+
+  it('confirmChargePointFields bestätigt Platzhalter, ohne Werte zu ändern', () => {
+    const p = makeSampleProject();
+    const [a, b] = p.chargePoints;
+    a!.missingFields = ['minA', 'phases'];
+    b!.missingFields = ['minA'];
+    const before = { a: a!.minA, b: b!.minA };
+    expect(confirmChargePointFields(p, [a!.id, b!.id, 'x'], ['minA'])).toBe(2);
+    expect(a!.missingFields).toEqual(['phases']);
+    expect(b).not.toHaveProperty('missingFields');
+    expect({ a: a!.minA, b: b!.minA }).toEqual(before);
+    expect(confirmChargePointFields(p, [a!.id], ['fuseA'])).toBe(0);
+  });
+
   it('Felder setzen und optionale Felder mit undefined entfernen', () => {
     const p = makeSampleProject();
     const fleet = p.groups[1]!;
