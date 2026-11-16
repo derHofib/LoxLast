@@ -30,6 +30,13 @@ und Seite.
 - Platzhalter sind Texte, die mit `TODO` beginnen, zum Beispiel `"TODO"`
   oder `"TODO(verify: ...)"`.
 
+## Registeradresse
+
+`address` ist die Adresse im Modbus-Protokoll und zählt ab 0. So erwartet sie
+auch Loxone Config im Feld „IO-Adresse“ (getestet am 2026-11-16). Zählt das
+Datenblatt ab 1 (z. B. „40001“ oder „Register 1“), wird 1 abgezogen. Die
+Quelle (`source`) nennt dann die Angabe aus dem Datenblatt und den Abzug.
+
 ## Byte-Reihenfolge
 
 Für Werte über zwei Register legt Modbus die Reihenfolge nicht fest. Sie

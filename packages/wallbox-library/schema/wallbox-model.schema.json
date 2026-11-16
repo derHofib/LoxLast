@@ -224,6 +224,7 @@
       "required": ["address", "fn", "type", "scale", "access", "unit", "source"],
       "properties": {
         "address": {
+          "description": "Protokolladresse, zählt ab 0 (wie die IO-Adresse in Loxone Config). Zählt das Datenblatt ab 1, wird 1 abgezogen.",
           "anyOf": [
             {
               "type": "integer",
