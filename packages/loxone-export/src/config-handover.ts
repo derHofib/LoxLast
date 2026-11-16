@@ -97,6 +97,18 @@ export interface PlannedLoadManager {
   /** Elternteil, von dem das Limit kommt; fehlt beim Standort (virtueller Eingang). */
   parent?: { key: string; slot: number };
   loads: PlannedLoad[];
+  /** Schlüssel der Seite, auf der der Baustein liegt (siehe PlannedPage). */
+  page: string;
+}
+
+/**
+ * Eine Logik-Seite in Config. Schlüssel = Schlüssel der Ebene: `site`, `cluster:<id>`,
+ * `group:<id>`. Reihenfolge der Liste = Reihenfolge des Anlegens: Standort, dann je Cluster die
+ * Cluster-Seite, ihre Gruppen-Seiten, danach ihre Unter-Cluster (Tiefensuche).
+ */
+export interface PlannedPage {
+  key: string;
+  name: string;
 }
 
 export interface PlannedWallboxManager {
@@ -105,6 +117,7 @@ export interface PlannedWallboxManager {
   parent: { key: string; slot: number };
   /** Wallbox-Titel in der Reihenfolge, in der sie im Dialog eingetragen werden. */
   wallboxes: string[];
+  page: string;
 }
 
 export interface PlannedWallbox {
@@ -116,6 +129,7 @@ export interface PlannedWallbox {
   maxA: number;
   minA: number;
   phases: 1 | 3;
+  page: string;
 }
 
 export interface PlannedVirtualInput {
@@ -124,6 +138,7 @@ export interface PlannedVirtualInput {
   valueKw: number;
   valueA: number;
   target: { key: string; connector: 'maxP' | 'Pmax' };
+  page: string;
 }
 
 export interface HandoverPlan {
@@ -133,6 +148,8 @@ export interface HandoverPlan {
   pageMatch: string;
   /** Kurzer Struktur-Hash in der Kennung, zum Vergleich mit einer vorhandenen Seite. */
   pageHash: string;
+  /** Alle Seiten in Anlege-Reihenfolge; die erste ist die Standort-Seite mit `pageName`. */
+  pages: PlannedPage[];
   voltageV: number;
   virtualInputs: PlannedVirtualInput[];
   loadManagers: PlannedLoadManager[];
@@ -213,7 +230,11 @@ export function hashFromPageName(name: string, match: string): string | undefine
 
 const pageFields = (project: Project) => {
   const t = pageTag(project);
-  return { pageName: `LastPlan – ${project.name} ${t.tag}`, pageMatch: t.match, pageHash: t.hash };
+  return {
+    pageName: `Standort – ${project.name} ${t.tag}`,
+    pageMatch: t.match,
+    pageHash: t.hash,
+  };
 };
 
 /** Cluster-Limit in A je Phase: bei abweichenden Phasen-Limits das kleinste. */
@@ -295,6 +316,7 @@ export function buildHandoverPlan(
         maxA: cp.maxA,
         minA: cp.minA,
         phases: cp.phases,
+        page: key,
       });
       titlesOfGroup.push(wbTitle);
     }
@@ -305,6 +327,7 @@ export function buildHandoverPlan(
       title,
       parent: { key: parentKey, slot },
       wallboxes: titlesOfGroup,
+      page: key,
     });
     return { key, title };
   };
@@ -325,6 +348,7 @@ export function buildHandoverPlan(
       maxA: limitA,
       ...(parent ? { parent } : {}),
       loads: [],
+      page: key,
     };
     loadManagers.push(lm);
     const children: Array<() => PlannedLoad> = [];
@@ -396,8 +420,27 @@ export function buildHandoverPlan(
       valueKw: kw3(siteA),
       valueA: siteA,
       target: { key: 'site', connector: LOXONE_CONNECTORS.loadManagerMaxP },
+      page: 'site',
     },
   ];
+
+  // Seiten (Tiefensuche): Standort, je Cluster die Cluster-Seite, ihre Gruppen (G1, G2 …), dann
+  // ihre Unter-Cluster. Namen zeigen die Zugehörigkeit: „TG“, „TG · G1 Flotte“, „TG › Strang“.
+  const { pageName } = pageFields(project);
+  const pages: PlannedPage[] = [{ key: 'site', name: pageName }];
+  const pageNames = new Set<string>([pageName]);
+  const addPage = (key: string, name: string) => {
+    if (pageNames.has(name)) blockers.push(`Seitenname „${name}“ kommt doppelt vor.`);
+    pageNames.add(name);
+    pages.push({ key, name });
+  };
+  const visitCluster = (c: Cluster, path: string) => {
+    addPage(`cluster:${c.id}`, path);
+    const groups = project.groups.filter((g) => g.clusterId === c.id);
+    groups.forEach((g, i) => addPage(`group:${g.id}`, `${path} · G${i + 1} ${g.name}`));
+    for (const child of childClusters(c.id)) visitCluster(child, `${path} › ${child.name}`);
+  };
+  for (const c of childClusters(undefined)) visitCluster(c, c.name);
 
   const manualSteps: ManualStep[] = [
     ...loadManagers
@@ -466,6 +509,7 @@ export function buildHandoverPlan(
 
   return {
     ...pageFields(project),
+    pages,
     voltageV: V,
     virtualInputs,
     loadManagers,
@@ -482,6 +526,7 @@ export function buildHandoverPlan(
 function emptyPlan(project: Project, blockers: string[]): HandoverPlan {
   return {
     ...pageFields(project),
+    pages: [{ key: 'site', name: pageFields(project).pageName }],
     voltageV: project.settings.voltageV,
     virtualInputs: [],
     loadManagers: [],
@@ -516,12 +561,15 @@ export interface HandoverScriptInput {
   replace?: boolean;
   /** Was der letzte Lauf angelegt hat (aus dem ExportRecord); wird beim Ersetzen entfernt. */
   previous?: PreviousHandover;
+  pages: PlannedPage[];
   loadManagers: Array<
-    Pick<PlannedLoadManager, 'key' | 'title' | 'maxKw'> & { parent?: PlannedLoadManager['parent'] }
+    Pick<PlannedLoadManager, 'key' | 'title' | 'maxKw' | 'page'> & {
+      parent?: PlannedLoadManager['parent'];
+    }
   >;
-  wallboxManagers: Array<Pick<PlannedWallboxManager, 'key' | 'title' | 'parent'>>;
-  wallboxes: Array<Pick<PlannedWallbox, 'key' | 'title' | 'maxKw' | 'minKw'>>;
-  virtualInputs: Array<Pick<PlannedVirtualInput, 'key' | 'name' | 'target'>>;
+  wallboxManagers: Array<Pick<PlannedWallboxManager, 'key' | 'title' | 'parent' | 'page'>>;
+  wallboxes: Array<Pick<PlannedWallbox, 'key' | 'title' | 'maxKw' | 'minKw' | 'page'>>;
+  virtualInputs: Array<Pick<PlannedVirtualInput, 'key' | 'name' | 'target' | 'page'>>;
   modbusDevices: Array<
     Omit<PlannedModbusDevice, 'registers'> & {
       registers: Array<
@@ -551,15 +599,33 @@ export function handoverScriptInput(
     pageMatch: plan.pageMatch,
     replace: options.replace ?? false,
     previous: options.previous ?? { pages: [], periphery: [] },
-    loadManagers: plan.loadManagers.map(({ key, title, maxKw, parent }) => ({
+    pages: plan.pages,
+    loadManagers: plan.loadManagers.map(({ key, title, maxKw, parent, page }) => ({
       key,
       title,
       maxKw,
+      page,
       ...(parent ? { parent } : {}),
     })),
-    wallboxManagers: plan.wallboxManagers.map(({ key, title, parent }) => ({ key, title, parent })),
-    wallboxes: plan.wallboxes.map(({ key, title, maxKw, minKw }) => ({ key, title, maxKw, minKw })),
-    virtualInputs: plan.virtualInputs.map(({ key, name, target }) => ({ key, name, target })),
+    wallboxManagers: plan.wallboxManagers.map(({ key, title, parent, page }) => ({
+      key,
+      title,
+      parent,
+      page,
+    })),
+    wallboxes: plan.wallboxes.map(({ key, title, maxKw, minKw, page }) => ({
+      key,
+      title,
+      maxKw,
+      minKw,
+      page,
+    })),
+    virtualInputs: plan.virtualInputs.map(({ key, name, target, page }) => ({
+      key,
+      name,
+      target,
+      page,
+    })),
     modbusDevices: plan.modbusDevices,
   };
 }
@@ -581,15 +647,18 @@ export function renderHandoverScript(plan: HandoverScriptInput): string {
       pmax: LOXONE_CONNECTORS.wallboxManagerPmax,
       viOut: LOXONE_CONNECTORS.virtualInputRefOut,
     },
+    pages: plan.pages.map((p) => ({ key: p.key, name: p.name })),
     loadManagers: plan.loadManagers.map((l) => ({
       key: l.key,
       title: l.title,
       maxKw: l.maxKw,
+      page: l.page,
       parent: l.parent ?? null,
     })),
     wallboxManagers: plan.wallboxManagers.map((w) => ({
       key: w.key,
       title: w.title,
+      page: w.page,
       parent: w.parent,
     })),
     wallboxes: plan.wallboxes.map((w) => ({
@@ -597,6 +666,7 @@ export function renderHandoverScript(plan: HandoverScriptInput): string {
       title: w.title,
       maxKw: w.maxKw,
       minKw: w.minKw,
+      page: w.page,
     })),
     modbus: {
       types: MODBUS_TYPES,
@@ -604,11 +674,16 @@ export function renderHandoverScript(plan: HandoverScriptInput): string {
       deviceAddress: MODBUS_PROPERTIES.deviceAddress,
       dataType: MODBUS_PROPERTIES.dataType,
     },
-    modbusDevices: plan.modbusDevices,
+    // Modbus-Referenzen liegen auf der Seite ihrer Wallbox.
+    modbusDevices: plan.modbusDevices.map((d) => ({
+      ...d,
+      page: plan.wallboxes.find((w) => w.key === d.wallboxKey)?.page ?? plan.pages[0]?.key ?? '',
+    })),
     virtualInputs: plan.virtualInputs.map((v) => ({
       key: v.key,
       name: v.name,
       target: v.target,
+      page: v.page,
     })),
   };
   return `const plan = ${JSON.stringify(data)};
@@ -737,20 +812,41 @@ missing.forEach((address, i) => {
   created['server:' + address] = uuid;
 });
 
-const page = uuidOf(cfg.add_page({ name: plan.pageName, context_uuid: miniserver.uuid }));
-created.page = page;
+// Seiten in Anlege-Reihenfolge (Standort, Cluster, Gruppen …). Was auf einer anderen Seite liegt
+// als sein Gegenüber, wird als Referenz verbunden (connect_blocks reference: true).
+const pageOf = {};
+for (const p of plan.pages) {
+  pageOf[p.key] = uuidOf(cfg.add_page({ name: p.name, context_uuid: miniserver.uuid }));
+  created['page:' + p.key] = pageOf[p.key];
+}
+const pageOfBlock = {};
+const connect = (from, fromKey, to, toKey) => {
+  const p = { from_block_uuid: from, from_connector_key: fromKey, to_block_uuid: to, to_connector_key: toKey };
+  if (pageOfBlock[from] !== pageOfBlock[to]) p.reference = true;
+  cfg.connect_blocks(p);
+};
+const place = (type, pageKey, title) => {
+  const id = uuidOf(cfg.add_block({ type, page_uuid: pageOf[pageKey], title }));
+  pageOfBlock[id] = pageKey;
+  return id;
+};
+const placeRef = (source, pageKey) => {
+  const id = uuidOf(cfg.add_object_ref({ source_uuid: source, page_uuid: pageOf[pageKey] }));
+  pageOfBlock[id] = pageKey;
+  return id;
+};
 
 for (const l of plan.loadManagers) {
-  const id = uuidOf(cfg.add_block({ type: plan.types.loadManager, page_uuid: page, title: l.title }));
+  const id = place(plan.types.loadManager, l.page, l.title);
   created[l.key] = id;
   cfg.set_block_property({ uuid: id, property_id: plan.props.loadManagerMode, value: plan.modeOverload });
   cfg.set_block_property({ uuid: id, property_id: plan.props.loadManagerMaxP, value: l.maxKw });
 }
 for (const w of plan.wallboxManagers) {
-  created[w.key] = uuidOf(cfg.add_block({ type: plan.types.wallboxManager, page_uuid: page, title: w.title }));
+  created[w.key] = place(plan.types.wallboxManager, w.page, w.title);
 }
 for (const w of plan.wallboxes) {
-  const id = uuidOf(cfg.add_block({ type: plan.types.wallbox, page_uuid: page, title: w.title }));
+  const id = place(plan.types.wallbox, w.page, w.title);
   created[w.key] = id;
   cfg.set_block_property({ uuid: id, property_id: plan.props.wallboxMaxKw, value: w.maxKw });
   cfg.set_block_property({ uuid: id, property_id: plan.props.wallboxMinKw, value: w.minKw });
@@ -758,27 +854,18 @@ for (const w of plan.wallboxes) {
 
 for (const l of plan.loadManagers) {
   if (!l.parent) continue;
-  cfg.connect_blocks({
-    from_block_uuid: created[l.parent.key], from_connector_key: 'AQl' + l.parent.slot,
-    to_block_uuid: created[l.key], to_connector_key: plan.conn.maxP,
-  });
+  connect(created[l.parent.key], 'AQl' + l.parent.slot, created[l.key], plan.conn.maxP);
 }
 for (const w of plan.wallboxManagers) {
-  cfg.connect_blocks({
-    from_block_uuid: created[w.parent.key], from_connector_key: 'AQl' + w.parent.slot,
-    to_block_uuid: created[w.key], to_connector_key: plan.conn.pmax,
-  });
+  connect(created[w.parent.key], 'AQl' + w.parent.slot, created[w.key], plan.conn.pmax);
 }
 
 for (const v of plan.virtualInputs) {
   const vi = uuidOf(cfg.insert_object({ type: plan.types.virtualInput, parent_uuid: virtualParent, name: v.name }));
   created[v.key] = vi;
   cfg.set_block_property({ uuid: vi, property_id: plan.props.virtualInputDigital, value: false });
-  const inst = uuidOf(cfg.add_object_ref({ source_uuid: vi, page_uuid: page }));
-  cfg.connect_blocks({
-    from_block_uuid: inst, from_connector_key: plan.conn.viOut,
-    to_block_uuid: created[v.target.key], to_connector_key: v.target.connector,
-  });
+  const inst = placeRef(vi, v.page);
+  connect(inst, plan.conn.viOut, created[v.target.key], v.target.connector);
 }
 
 // TODO(verify): Eingangs-Schlüssel einer platzierten Aktor-Instanz ist nicht dokumentiert; das
@@ -819,23 +906,24 @@ for (const d of plan.modbusDevices) {
     const io = uuidOf(cfg.insert_object({ type, parent_uuid: dev, name: r.name }));
     created[d.key + ':' + r.role] = io;
     setIoProperties(io, r.properties);
-    const inst = uuidOf(cfg.add_object_ref({ source_uuid: io, page_uuid: page }));
+    const inst = placeRef(io, d.page);
     const wb = created[d.wallboxKey];
-    if (r.kind === 'sensor') {
-      cfg.connect_blocks({ from_block_uuid: inst, from_connector_key: plan.conn.viOut, to_block_uuid: wb, to_connector_key: r.wallboxConnector });
-    } else {
-      cfg.connect_blocks({ from_block_uuid: wb, from_connector_key: r.wallboxConnector, to_block_uuid: inst, to_connector_key: actorInput(inst) });
-    }
+    if (r.kind === 'sensor') connect(inst, plan.conn.viOut, wb, r.wallboxConnector);
+    else connect(wb, r.wallboxConnector, inst, actorInput(inst));
   }
 }
 
-const arranged = cfg.arrange_page({ page_uuid: page });
-const overflow = ((arranged && arranged.overflowPages) || []).map((p) => p.uuid).filter(Boolean);
+const allPages = [];
+for (const p of plan.pages) {
+  allPages.push(pageOf[p.key]);
+  const arranged = cfg.arrange_page({ page_uuid: pageOf[p.key] });
+  for (const o of (arranged && arranged.overflowPages) || []) if (o.uuid) allPages.push(o.uuid);
+}
 const periphery = plan.virtualInputs.map((v) => created[v.key]).concat(plan.modbusDevices.map((d) => created[d.key]));
 const validation = cfg.validate_project();
 return {
   outcome: ours.length > 0 ? 'replaced' : 'created',
   existingPages: ours.map((p) => ({ name: p.name, uuid: p.uuid })),
-  created, pages: [page].concat(overflow), periphery, removed, validation,
+  created, pages: allPages, periphery, removed, validation,
 };
 `;

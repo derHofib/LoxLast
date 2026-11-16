@@ -54,6 +54,11 @@ function PlanPreview({ plan }: { plan: HandoverPlan }) {
   return (
     <details className="config-handover__preview">
       <summary>Vorschau: was angelegt wird</summary>
+      <ol className="export-muted" aria-label="Seiten in Config">
+        {plan.pages.map((p) => (
+          <li key={p.key}>{p.name}</li>
+        ))}
+      </ol>
       <table className="config-handover__table">
         <thead>
           <tr>
@@ -189,12 +194,12 @@ export function ConfigHandover({ serverVersion }: { serverVersion?: string | und
     <section className="config-handover" aria-label="Übergabe an Config">
       <h3 className="export-h3">Übergabe an Config</h3>
       <p className="export-muted">
-        Legt im geöffneten Config-Projekt eine neue Seite „{plan.pageName}“ an:{' '}
-        {plan.loadManagers.length} Lastmanager, {plan.wallboxManagers.length} Wallbox Manager,{' '}
-        {plan.wallboxes.length} Wallboxen, {plan.modbusDevices.length} Modbus-Geräte. Alles zusammen
-        ist ein Schritt, den „Rückgängig“ vollständig zurücknimmt. Gespeichert wird nur auf Klick.
-        Gibt es die Seite dieses Projekts in Config schon, fragt LastPlan, ob sie ersetzt werden
-        soll.
+        Legt im geöffneten Config-Projekt {plan.pages.length} Seiten an (Standort, je Cluster und je
+        Gruppe eine, beginnend mit „{plan.pageName}“): {plan.loadManagers.length} Lastmanager,{' '}
+        {plan.wallboxManagers.length} Wallbox Manager, {plan.wallboxes.length} Wallboxen,{' '}
+        {plan.modbusDevices.length} Modbus-Geräte. Alles zusammen ist ein Schritt, den „Rückgängig“
+        vollständig zurücknimmt. Gespeichert wird nur auf Klick. Gibt es die Seiten dieses Projekts
+        in Config schon, fragt LastPlan, ob sie ersetzt werden sollen.
       </p>
       {exportBlockers.length > 0 ? (
         <Notice kind="error" title="Übergabe gesperrt">
@@ -248,7 +253,7 @@ export function ConfigHandover({ serverVersion }: { serverVersion?: string | und
           </Notice>
         ) : null}
         {existing ? (
-          <Notice kind="warning" title="Seite gibt es schon in Config">
+          <Notice kind="warning" title="Seiten gibt es schon in Config">
             <ul aria-label="Vorhandene Seiten">
               {existing.map((pg) => (
                 <li key={pg.uuid}>{pg.name}</li>
@@ -258,17 +263,17 @@ export function ConfigHandover({ serverVersion }: { serverVersion?: string | und
               {unchanged
                 ? 'Die Struktur des Projekts ist seit dieser Übergabe unverändert. Ersetzen lohnt sich nur, wenn sich Namen oder Werte geändert haben.'
                 : 'Das Projekt hat sich seit dieser Übergabe geändert.'}{' '}
-              Ersetzen entfernt die Seite mit allem, was darauf liegt, auch das, was in den Dialogen
-              eingetragen ist (Lasttabellen, Wallbox-Zuordnung), dazu die von LastPlan angelegten
-              virtuellen Eingänge und Modbus-Geräte. Danach wird neu angelegt. In Config wurde noch
-              nichts geändert.
+              Ersetzen entfernt die Seiten mit allem, was darauf liegt, auch das, was in den
+              Dialogen eingetragen ist (Lasttabellen, Wallbox-Zuordnung), dazu die von LastPlan
+              angelegten virtuellen Eingänge und Modbus-Geräte. Danach wird neu angelegt. In Config
+              wurde noch nichts geändert.
             </p>
             <Button
               variant="primary"
               disabled={locked || state.kind !== 'done'}
               onClick={() => void run(project, true)}
             >
-              Seite ersetzen
+              Seiten ersetzen
             </Button>
           </Notice>
         ) : null}
@@ -279,7 +284,7 @@ export function ConfigHandover({ serverVersion }: { serverVersion?: string | und
             </StatusBadge>
             {result.outcome === 'replaced' ? (
               <p className="export-muted">
-                Alte Seite ersetzt, {result.removed} Objekte entfernt. Die Einträge in den Dialogen
+                Alte Seiten ersetzt, {result.removed} Objekte entfernt. Die Einträge in den Dialogen
                 sind neu zu machen (Liste unten).
               </p>
             ) : null}

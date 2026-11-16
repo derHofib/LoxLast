@@ -107,7 +107,7 @@ describe('buildHandoverPlan', () => {
   it('bildet Standort, Cluster und Gruppen auf Lastmanager und Wallbox Manager ab', () => {
     const plan = buildHandoverPlan(sample(), MODELS);
     expect(plan.blockers).toEqual([]);
-    expect(plan.pageName).toMatch(/^LastPlan – Tiefgarage \[lastplan:[0-9a-f]{12}:[0-9a-f]{8}\]$/);
+    expect(plan.pageName).toMatch(/^Standort – Tiefgarage \[lastplan:[0-9a-f]{12}:[0-9a-f]{8}\]$/);
     expect(plan.pageName).toContain(plan.pageMatch + plan.pageHash + ']');
     expect(
       plan.loadManagers.map((l) => [l.key.split(':')[0], l.title, l.maxKw, l.parent?.slot]),
@@ -161,7 +161,36 @@ describe('buildHandoverPlan', () => {
         valueKw: 117.3,
         valueA: 170,
         target: { key: 'site', connector: 'maxP' },
+        page: 'site',
       },
+    ]);
+  });
+
+  it('Seiten: Standort, je Cluster eine, je Gruppe eine; Namen zeigen die Zugehörigkeit', () => {
+    const plan = buildHandoverPlan(sample(), MODELS);
+    expect(plan.pages.map((p) => p.name)).toEqual([
+      plan.pageName,
+      'TG',
+      'TG · G1 Mieter',
+      'TG · G2 Flotte',
+      'TG › Strang',
+      'TG › Strang · G1 Gäste',
+    ]);
+    const pageName = new Map(plan.pages.map((p) => [p.key, p.name]));
+    const on = (page: string) => pageName.get(page);
+    expect(plan.loadManagers.map((l) => [l.title, on(l.page)])).toEqual([
+      ['LM_Standort', plan.pageName],
+      ['LM_TG', 'TG'],
+      ['LM_Strang', 'TG › Strang'],
+    ]);
+    expect(plan.wallboxManagers.map((w) => [w.title, on(w.page)])).toEqual([
+      ['LIM_Strang_Gäste', 'TG › Strang · G1 Gäste'],
+      ['LIM_TG_Flotte', 'TG · G2 Flotte'],
+      ['LIM_TG_Mieter', 'TG · G1 Mieter'],
+    ]);
+    expect(plan.wallboxes.map((w) => [w.title, on(w.page)])).toContainEqual([
+      'WB_LP01',
+      'TG · G1 Mieter',
     ]);
   });
 
@@ -283,6 +312,7 @@ function fakeCfg(
     ];
   };
   let u = 0;
+  let pg = 0;
   const next = () => `u${++u}`;
   const rec =
     (name: string, result: (p: Record<string, unknown>) => unknown = () => ({ success: true })) =>
@@ -336,7 +366,7 @@ function fakeCfg(
         connectors: { inputs: [...actorInputs, { key: 'X', dataType: 'analog', hidden: true }] },
       },
     })),
-    add_page: rec('add_page', () => ({ page: { uuid: 'page' }, success: true })),
+    add_page: rec('add_page', () => ({ page: { uuid: `page${++pg}` }, success: true })),
     add_block: rec('add_block', (p) => {
       // wie Config: ohne Seite MISSING_PARAM
       if (!p['page_uuid']) throw new Error("Missing 'pageUuid' parameter");
@@ -429,7 +459,11 @@ describe('renderHandoverScript', () => {
       context_uuid: 'ms0',
     });
     expect(res.outcome).toBe('created');
-    expect(res.pages).toEqual(['page']);
+    expect(res.pages).toEqual(['page1', 'page2', 'page3', 'page4', 'page5', 'page6']);
+    expect(calls.filter(([m]) => m === 'add_page').map(([, p]) => p['name'])).toEqual(
+      plan.pages.map((p) => p.name),
+    );
+    expect(calls.filter(([m]) => m === 'arrange_page')).toHaveLength(6);
     expect(res.periphery).toEqual([
       res.created['vi:site'],
       ...plan.modbusDevices.map((d) => res.created[d.key]),
@@ -459,12 +493,14 @@ describe('renderHandoverScript', () => {
       from_connector_key: 'AQl1',
       to_block_uuid: tg,
       to_connector_key: 'maxP',
+      reference: true,
     });
     expect(wires).toContainEqual({
       from_block_uuid: tg,
       from_connector_key: 'AQl3',
       to_block_uuid: res.created[plan.wallboxManagers[2]!.key],
       to_connector_key: 'Pmax',
+      reference: true,
     });
     expect(wires).toContainEqual(
       expect.objectContaining({
@@ -711,7 +747,7 @@ describe('renderHandoverScript', () => {
     const { cfg, calls } = fakeCfg();
     run(buildHandoverPlan(p, MODELS), cfg);
     expect(calls.find(([m]) => m === 'add_page')?.[1]['name']).toBe(
-      `LastPlan – ${p.name} ${pageTag(p).tag}`,
+      `Standort – ${p.name} ${pageTag(p).tag}`,
     );
   });
 });
@@ -803,5 +839,37 @@ describe('Seitenkennung (6.6)', () => {
       'remove_block',
     ];
     expect(calls.filter(([m]) => changing.includes(m))).toEqual([]);
+  });
+});
+
+describe('Mehrere Seiten', () => {
+  it('Bausteine auf ihrer Seite; Verbindungen über Seitengrenzen als Referenz', () => {
+    const plan = buildHandoverPlan(sample(), MODELS);
+    const { cfg, calls } = fakeCfg();
+    const res = run(plan, cfg);
+    const pageUuid = (key: string) => res.created['page:' + key];
+    const blocks = calls.filter(([m]) => m === 'add_block').map(([, p]) => p);
+    expect(blocks.find((b) => b['title'] === 'LM_Standort')?.['page_uuid']).toBe(pageUuid('site'));
+    const mieter = plan.wallboxManagers.find((w) => w.title === 'LIM_TG_Mieter')!;
+    expect(blocks.find((b) => b['title'] === 'WB_LP01')?.['page_uuid']).toBe(pageUuid(mieter.key));
+    const refs = calls.filter(([m]) => m === 'add_object_ref').map(([, p]) => p['page_uuid']);
+    // VI auf dem Standort, Modbus-Referenzen auf der Gruppen-Seite ihrer Wallbox
+    expect(refs[0]).toBe(pageUuid('site'));
+    expect(refs).toContain(pageUuid(mieter.key));
+
+    const wires = calls.filter(([m]) => m === 'connect_blocks').map(([, p]) => p);
+    const site = res.created['site'];
+    const tg = res.created[plan.loadManagers[1]!.key];
+    // LM_Standort (Standort-Seite) → LM_TG (Seite TG): Referenz
+    expect(wires).toContainEqual(
+      expect.objectContaining({ from_block_uuid: site, to_block_uuid: tg, reference: true }),
+    );
+    // VI-Instanz → LM_Standort, beide auf der Standort-Seite: direkte Leitung
+    const vi = wires.find((w) => w['to_block_uuid'] === site)!;
+    expect(vi).not.toHaveProperty('reference');
+    // Wallbox → Aktor auf derselben Gruppen-Seite: direkte Leitung
+    const wb = res.created[plan.wallboxes.find((w) => w.title === 'WB_LP01')!.key];
+    const toActor = wires.find((w) => w['from_block_uuid'] === wb)!;
+    expect(toActor).not.toHaveProperty('reference');
   });
 });
