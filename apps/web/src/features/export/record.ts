@@ -4,6 +4,8 @@ import { command, type Command } from '../../state/history';
 export interface ExportRecordInput {
   mode: ExportRecord['mode'];
   configVersion?: string | undefined;
+  /** UUIDs, die die Übergabe in Config angelegt hat (6.6). */
+  config?: ExportRecord['config'] | undefined;
   /** Nur für Tests. */
   now?: Date;
   id?: string;
@@ -21,6 +23,7 @@ export function recordExportCommand(project: Project, input: ExportRecordInput):
     mode: input.mode,
     structureHash: structureHash(project),
     ...(input.configVersion ? { configVersion: input.configVersion } : {}),
+    ...(input.config ? { config: input.config } : {}),
   };
   return command('Export vermerken', (d) => {
     d.exportHistory.push(record);

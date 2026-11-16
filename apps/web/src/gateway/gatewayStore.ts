@@ -8,7 +8,7 @@ import {
   ErrorResponseSchema,
   TokenResponseSchema,
   type ConfigDiscoveryResponse,
-  type ConfigHandoverPlan,
+  type ConfigHandoverPlanInput,
   type ConfigHandoverResponse,
   type ConfigMcpStatusResponse,
   type ConfigSaveResponse,
@@ -214,7 +214,9 @@ export function requestConfigDiscovery(): Promise<ConfigDiscoveryResponse> {
 }
 
 /** Übergabeplan in Config anlegen (POST /api/config/handover, Plan 6.5). */
-export function requestConfigHandover(plan: ConfigHandoverPlan): Promise<ConfigHandoverResponse> {
+export function requestConfigHandover(
+  plan: ConfigHandoverPlanInput,
+): Promise<ConfigHandoverResponse> {
   return authorizedPost('/api/config/handover', ConfigHandoverResponseSchema, { plan });
 }
 

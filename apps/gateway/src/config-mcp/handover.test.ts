@@ -21,7 +21,10 @@ import { PROJECT_QUERY } from './status';
 const PROJECT = { title: 'Testprojekt', modified: false, pagesCount: 1, functionBlocksCount: 0 };
 
 const PLAN: ConfigHandoverPlan = {
-  pageName: 'LastPlan – Test',
+  pageName: 'LastPlan – Test [lastplan:0123456789ab:1a2b3c4d]',
+  pageMatch: '[lastplan:0123456789ab:',
+  replace: false,
+  previous: { pages: [], periphery: [] },
   loadManagers: [{ key: 'site', title: 'LM_Standort', maxKw: 117.3 }],
   wallboxManagers: [{ key: 'group:g1', title: 'LIM_A_B', parent: { key: 'site', slot: 1 } }],
   wallboxes: [{ key: 'cp:c1', title: 'WB_LP01', maxKw: 11.04, minKw: 4.14 }],
@@ -36,7 +39,12 @@ const PLAN: ConfigHandoverPlan = {
 };
 
 const RESULT = {
+  outcome: 'created',
+  existingPages: [],
   created: { page: 'p', site: 'u1' },
+  pages: ['p'],
+  periphery: ['u2'],
+  removed: 0,
   validation: {
     valid: false,
     issues: [{ rule: 'UNCONFIGURED_CONTROL', severity: 'warning', message: 'x' }],
@@ -216,7 +224,10 @@ describe('POST /api/config/handover, /undo, /save', () => {
       const save = await ctx.app.inject({ method: 'POST', url: '/api/config/save', headers });
       expect(ConfigSaveResponseSchema.parse(save.json()).saved).toBe(true);
       const log = ctx.changelog.list({ limit: 10 }).map((e) => [e.action, e.after]);
-      expect(log).toContainEqual(['config.handover', { created: 2, valid: false, failure: null }]);
+      expect(log).toContainEqual([
+        'config.handover',
+        { outcome: 'created', created: 2, removed: 0, valid: false, failure: null },
+      ]);
       expect(log.map(([a]) => a)).toEqual(expect.arrayContaining(['config.undo', 'config.save']));
       expect(JSON.stringify(log)).not.toContain('LM_Standort');
     } finally {

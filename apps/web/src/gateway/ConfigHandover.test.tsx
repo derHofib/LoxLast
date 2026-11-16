@@ -77,7 +77,7 @@ describe('ConfigHandover', () => {
   it('Vorschau, Anlegen, Ergebnis mit Nacharbeit, Rückgängig und Speichern', async () => {
     const user = userEvent.setup();
     render(<ConfigHandover serverVersion="1.0.1" />);
-    expect(screen.getByText(/Seite „LastPlan – Testanlage“/)).toBeTruthy();
+    expect(screen.getByText(/Seite „LastPlan – Testanlage \[lastplan:/)).toBeTruthy();
     expect(screen.getByRole('list', { name: 'Voraussetzungen' }).textContent).toContain(
       '192.168.10.21:502',
     );
@@ -106,13 +106,18 @@ describe('ConfigHandover', () => {
     const [url, init] = fetchMock.mock.calls[0]!;
     expect(url).toBe('http://127.0.0.1:8787/api/config/handover');
     expect(init?.method).toBe('POST');
-    const sent = body(0) as { plan: { pageName: string; loadManagers: unknown[] } };
-    expect(sent.plan.pageName).toBe('LastPlan – Testanlage');
+    const sent = body(0) as {
+      plan: { pageName: string; loadManagers: unknown[]; replace: boolean };
+    };
+    expect(sent.plan.pageName).toMatch(/^LastPlan – Testanlage \[lastplan:/);
+    expect(sent.plan.replace).toBe(false);
     expect(sent.plan.loadManagers).toHaveLength(2);
     expect(sent.plan).not.toHaveProperty('manualSteps');
     const history = useProjectStore.getState().project!.exportHistory;
     expect(history).toHaveLength(1);
     expect(history[0]).toMatchObject({ mode: 'project', configVersion: '1.0.1' });
+    // ältere Gateway-Antwort ohne pages/periphery: Vorgaben greifen
+    expect(history[0]?.config).toEqual({ pages: [], periphery: [] });
 
     replies = [
       { status: 200, body: { saved: true, message: 'Projekt in Loxone Config gespeichert.' } },
@@ -131,6 +136,62 @@ describe('ConfigHandover', () => {
     await user.click(screen.getByRole('button', { name: 'Rückgängig in Config' }));
     expect(await screen.findByText('Rückgängig gemacht.')).toBeTruthy();
     expect(screen.queryByText('3 Objekte angelegt')).toBeNull();
+  });
+
+  it('Seite gibt es schon: Hinweis, Ersetzen schickt replace und die UUIDs des letzten Laufs', async () => {
+    const user = userEvent.setup();
+    render(<ConfigHandover />);
+    const done = (outcome: string, extra: Record<string, unknown>) => ({
+      status: 200,
+      body: { status: STATUS, failure: null, result: { outcome, ...extra } },
+    });
+    replies = [
+      done('created', {
+        created: { page: 'p1' },
+        pages: ['p1', 'p1b'],
+        periphery: ['vi1'],
+        validation: { valid: true, issues: [] },
+      }),
+    ];
+    await user.click(screen.getByRole('button', { name: 'In Config anlegen' }));
+    expect(await screen.findByText('1 Objekte angelegt')).toBeTruthy();
+    const sent = body(0) as { plan: { pageName: string; pageMatch: string } };
+
+    replies = [
+      done('exists', {
+        existingPages: [{ name: sent.plan.pageName, uuid: 'p1' }],
+        created: {},
+        validation: null,
+      }),
+    ];
+    await user.click(screen.getByRole('button', { name: 'In Config anlegen' }));
+    expect(await screen.findByText('Seite gibt es schon in Config')).toBeTruthy();
+    expect(
+      screen.getByText(/Struktur des Projekts ist seit dieser Übergabe unverändert/),
+    ).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Rückgängig in Config' })).toBeNull();
+    expect(useProjectStore.getState().project!.exportHistory).toHaveLength(1);
+    expect((body(1) as { plan: { previous: unknown } }).plan.previous).toEqual({
+      pages: ['p1', 'p1b'],
+      periphery: ['vi1'],
+    });
+
+    replies = [
+      done('replaced', {
+        existingPages: [{ name: sent.plan.pageName, uuid: 'p1' }],
+        created: { page: 'p2', site: 'u1' },
+        pages: ['p2'],
+        periphery: ['vi2'],
+        removed: 7,
+        validation: { valid: true, issues: [] },
+      }),
+    ];
+    await user.click(screen.getByRole('button', { name: 'Seite ersetzen' }));
+    expect(await screen.findByText(/Alte Seite ersetzt, 7 Objekte entfernt/)).toBeTruthy();
+    expect((body(2) as { plan: { replace: boolean } }).plan.replace).toBe(true);
+    const history = useProjectStore.getState().project!.exportHistory;
+    expect(history).toHaveLength(2);
+    expect(history[1]?.config).toEqual({ pages: ['p2'], periphery: ['vi2'] });
   });
 
   it('Abbruch im Skript: Meldung und Rückgängig-Angebot', async () => {

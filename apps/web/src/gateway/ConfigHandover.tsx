@@ -1,6 +1,11 @@
 import { useMemo, useState } from 'react';
 import { formatNumber, type Project } from '@lastplan/core';
-import { buildHandoverPlan, handoverScriptInput, type HandoverPlan } from '@lastplan/loxone-export';
+import {
+  buildHandoverPlan,
+  handoverScriptInput,
+  hashFromPageName,
+  type HandoverPlan,
+} from '@lastplan/loxone-export';
 import type { ConfigHandoverResponse } from '@lastplan/protocol';
 import { Button, Notice, StatusBadge } from '@lastplan/ui';
 import { recordExportCommand } from '../features/export/record';
@@ -13,6 +18,15 @@ import {
   requestConfigSave,
   requestConfigUndo,
 } from './gatewayStore';
+
+/** UUIDs aus dem letzten Lauf mit Config-Angaben, für das Ersetzen (6.6). */
+function previousHandover(project: Project) {
+  for (let i = project.exportHistory.length - 1; i >= 0; i--) {
+    const c = project.exportHistory[i]?.config;
+    if (c) return c;
+  }
+  return undefined;
+}
 
 const kw = (v: number) => `${v.toLocaleString('de-DE', { maximumFractionDigits: 2 })} kW`;
 
@@ -120,15 +134,24 @@ export function ConfigHandover({ serverVersion }: { serverVersion?: string | und
   const failed = (e: unknown, fallback: string) =>
     setState({ kind: 'failed', message: e instanceof GatewayError ? e.message : fallback });
 
-  const run = async (p: Project) => {
+  const run = async (p: Project, replace = false) => {
     setNote(null);
     setSaved(false);
-    setState({ kind: 'busy', what: 'Übergabe läuft …' });
+    setState({ kind: 'busy', what: replace ? 'Seite wird ersetzt …' : 'Übergabe läuft …' });
     try {
-      const response = await requestConfigHandover(handoverScriptInput(plan));
+      const response = await requestConfigHandover(
+        handoverScriptInput(plan, { replace, previous: previousHandover(p) }),
+      );
       setState({ kind: 'done', response });
-      if (response.result) {
-        execute(recordExportCommand(p, { mode: 'project', configVersion: serverVersion }));
+      const r = response.result;
+      if (r && r.outcome !== 'exists') {
+        execute(
+          recordExportCommand(p, {
+            mode: 'project',
+            configVersion: serverVersion,
+            config: { pages: r.pages, periphery: r.periphery },
+          }),
+        );
       }
     } catch (e) {
       failed(e, 'Übergabe fehlgeschlagen.');
@@ -153,9 +176,13 @@ export function ConfigHandover({ serverVersion }: { serverVersion?: string | und
     }
   };
 
-  const result = state.kind === 'done' ? state.response.result : null;
+  const answer = state.kind === 'done' ? state.response.result : null;
+  const existing = answer?.outcome === 'exists' ? answer.existingPages : null;
+  const result = answer && answer.outcome !== 'exists' ? answer : null;
+  const unchanged =
+    existing?.some((pg) => hashFromPageName(pg.name, plan.pageMatch) === plan.pageHash) ?? false;
   const failure = state.kind === 'done' ? state.response.failure : null;
-  const issues = result?.validation.issues ?? [];
+  const issues = result?.validation?.issues ?? [];
   const errors = issues.filter((i) => i.severity === 'error');
 
   return (
@@ -166,6 +193,8 @@ export function ConfigHandover({ serverVersion }: { serverVersion?: string | und
         {plan.loadManagers.length} Lastmanager, {plan.wallboxManagers.length} Wallbox Manager,{' '}
         {plan.wallboxes.length} Wallboxen, {plan.modbusDevices.length} Modbus-Geräte. Alles zusammen
         ist ein Schritt, den „Rückgängig“ vollständig zurücknimmt. Gespeichert wird nur auf Klick.
+        Gibt es die Seite dieses Projekts in Config schon, fragt LastPlan, ob sie ersetzt werden
+        soll.
       </p>
       {exportBlockers.length > 0 ? (
         <Notice kind="error" title="Übergabe gesperrt">
@@ -218,11 +247,42 @@ export function ConfigHandover({ serverVersion }: { serverVersion?: string | und
               : ' In Config wurde nichts geändert.'}
           </Notice>
         ) : null}
+        {existing ? (
+          <Notice kind="warning" title="Seite gibt es schon in Config">
+            <ul aria-label="Vorhandene Seiten">
+              {existing.map((pg) => (
+                <li key={pg.uuid}>{pg.name}</li>
+              ))}
+            </ul>
+            <p>
+              {unchanged
+                ? 'Die Struktur des Projekts ist seit dieser Übergabe unverändert. Ersetzen lohnt sich nur, wenn sich Namen oder Werte geändert haben.'
+                : 'Das Projekt hat sich seit dieser Übergabe geändert.'}{' '}
+              Ersetzen entfernt die Seite mit allem, was darauf liegt, auch das, was in den Dialogen
+              eingetragen ist (Lasttabellen, Wallbox-Zuordnung), dazu die von LastPlan angelegten
+              virtuellen Eingänge und Modbus-Geräte. Danach wird neu angelegt. In Config wurde noch
+              nichts geändert.
+            </p>
+            <Button
+              variant="primary"
+              disabled={locked || state.kind !== 'done'}
+              onClick={() => void run(project, true)}
+            >
+              Seite ersetzen
+            </Button>
+          </Notice>
+        ) : null}
         {result ? (
           <>
             <StatusBadge status={errors.length > 0 ? 'warning' : 'active'}>
               {Object.keys(result.created).length} Objekte angelegt
             </StatusBadge>
+            {result.outcome === 'replaced' ? (
+              <p className="export-muted">
+                Alte Seite ersetzt, {result.removed} Objekte entfernt. Die Einträge in den Dialogen
+                sind neu zu machen (Liste unten).
+              </p>
+            ) : null}
             <p className="export-muted">
               Prüfung in Config: {errors.length} Fehler, {issues.length - errors.length} Hinweise.
               {saved ? ' Gespeichert.' : ' Noch nicht gespeichert.'}

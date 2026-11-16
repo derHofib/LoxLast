@@ -362,8 +362,10 @@ export async function buildServer(deps: ServerDeps): Promise<FastifyInstance> {
           actor: actor(req),
           target: 'loxone-config',
           after: {
+            outcome: res.result?.outcome ?? null,
             created: res.result ? Object.keys(res.result.created).length : 0,
-            valid: res.result?.validation.valid ?? null,
+            removed: res.result?.removed ?? 0,
+            valid: res.result?.validation?.valid ?? null,
             failure: res.failure?.code ?? null,
           },
         });
