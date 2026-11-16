@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { ConfigDiscoveryResponseSchema } from '@lastplan/protocol';
 import { makeServer, pairedToken } from '../test-helpers';
 import { createConfigMcpClient, type ConfigMcpClient } from './client';
-import { DISCOVERY_QUERY, runConfigDiscovery } from './discovery';
+import { DISCOVERY_QUERY, docOrder, MAX_DOCS, runConfigDiscovery } from './discovery';
 import { startFakeConfigMcp, type FakeConfigMcp } from './fake-server';
 import { PROJECT_QUERY } from './status';
 
@@ -49,6 +49,15 @@ describe('runConfigDiscovery', () => {
     expect(f.queries).toEqual([PROJECT_QUERY, DISCOVERY_QUERY]);
   });
 
+  it('Doku zuerst für Wallbox, Wallbox Manager, Lastmanager; höchstens MAX_DOCS', () => {
+    const many = Array.from({ length: 30 }, (_, i) => `Typ${i}`);
+    const order = docOrder([...many, 'LoadShed', 'WBEM', 'Wallbox', 'Typ1']);
+    expect(order.slice(0, 3)).toEqual(['Wallbox', 'WBEM', 'LoadShed']);
+    expect(order).toHaveLength(MAX_DOCS);
+    expect(new Set(order).size).toBe(MAX_DOCS);
+    expect(docOrder(['A', 'EFM'])).toEqual(['EFM', 'A']);
+  });
+
   it('nur lesende cfg-Aufrufe im Skript', () => {
     const calls = [...DISCOVERY_QUERY.matchAll(/cfg\.(\w+)\(/g)].map((m) => m[1]);
     expect(new Set(calls)).toEqual(
@@ -60,6 +69,7 @@ describe('runConfigDiscovery', () => {
         'get_tree',
         'get_block_index',
         'get_block',
+        'get_block_data',
       ]),
     );
   });
@@ -126,6 +136,7 @@ describe('runConfigDiscovery', () => {
           { uuid: 'x', type: 'And', title: 'A' },
         ],
       }),
+      get_block_data: () => ({ dataContract: true, current: { loads: [] } }),
       get_block: () => ({
         block: {
           configState: { isConfigured: false },
@@ -136,14 +147,16 @@ describe('runConfigDiscovery', () => {
     const run = new Function('cfg', DISCOVERY_QUERY) as (c: typeof cfg) => {
       blockTypes: Array<{ type: string }>;
       modbusObjects: Array<{ path: string; properties: Array<{ options?: unknown }> }>;
-      placedBlocks: Array<{ type: string; properties?: unknown }>;
+      placedBlocks: Array<{ type: string; properties?: unknown; blockData?: unknown }>;
       errors: Array<{ what: string; code: string }>;
     };
     const r = run(cfg);
     expect(r.blockTypes.map((t) => t.type)).toEqual(['Wallbox']);
     expect(r.modbusObjects[0]?.path).toBe('Miniserver / Wallbox 1');
     expect(r.modbusObjects[0]?.properties[1]?.options).toEqual(['a', 'b']);
-    expect(r.placedBlocks).toMatchObject([{ type: 'Wallbox', properties: undefined }]);
+    expect(r.placedBlocks).toMatchObject([
+      { type: 'Wallbox', properties: undefined, blockData: { current: { loads: [] } } },
+    ]);
     expect(r.errors).toEqual([
       { what: 'get_block_properties wb', code: 'NOT_FOUND', message: 'nope' },
     ]);

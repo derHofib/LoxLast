@@ -14,7 +14,10 @@ import { checkConfigMcp } from './status';
  * - einfügbare Peripherietypen (`get_insertable_types`), kompakt.
  * - Modbus-Objekte im Peripheriebaum (`get_tree`) mit Eigenschaften (`get_block_properties`)
  *   und, wo es Optionen gibt, deren Liste (`get_property_options`).
- * - platzierte Bausteine passender Typen mit Anschlüssen (`get_block_index`, `get_block`).
+ * - platzierte Bausteine passender Typen mit Anschlüssen (`get_block_index`, `get_block`) und
+ *   den Daten hinter ihrem Dialog (`get_block_data`, z. B. die Lasttabelle des Lastmanagers).
+ *   `get_block_data_raw` wird bewusst nicht gelesen (serialisiert den Baustein, laut Skill nie in
+ *   einer Schleife).
  * Fehler einzelner Aufrufe stehen im Bericht unter `errors` statt die Erkundung abzubrechen.
  */
 export const DISCOVERY_QUERY = String.raw`
@@ -72,6 +75,7 @@ const placedBlocks = index.filter((b) => wanted.has(b.type)).slice(0, MAX_OBJECT
     outputs: d ? d.connectors.outputs.map(conn) : undefined,
     parameters: d ? d.connectors.parameters.map(conn) : undefined,
     properties: props(b.uuid),
+    blockData: attempt('get_block_data ' + b.uuid, () => cfg.get_block_data({ uuid: b.uuid })),
   };
 });
 
@@ -87,6 +91,24 @@ interface DiscoveryValue {
 
 const asArray = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
 
+/** Höchstzahl der `get_doc`-Abrufe je Erkundung. */
+export const MAX_DOCS = 20;
+
+/**
+ * Diese Bausteintypen bekommen ihre Doku zuerst, weil der Skript-Erzeuger (6.4) auf ihnen aufbaut:
+ * Wallbox, Wallbox Manager, Lastmanager, Energiemanager. Schlüssel aus `get_block_types` der
+ * Erkundung vom 2026-11-16.
+ */
+export const PRIORITY_DOC_TYPES = ['Wallbox', 'WBEM', 'LoadShed', 'EnergyManager2', 'EFM'] as const;
+
+/** Reihenfolge der Doku-Abrufe: zuerst die vorrangigen Typen, dann der Rest wie gefunden. */
+export function docOrder(found: readonly string[]): string[] {
+  const set = new Set(found);
+  const first = PRIORITY_DOC_TYPES.filter((t) => set.has(t));
+  const rest = found.filter((t) => !(PRIORITY_DOC_TYPES as readonly string[]).includes(t));
+  return [...new Set([...first, ...rest])].slice(0, MAX_DOCS);
+}
+
 /** Erkundung ausführen. Ohne Verbindung oder bei falscher Config-Version: nur der Status. */
 export async function runConfigDiscovery(
   client: ConfigMcpClient | undefined,
@@ -97,9 +119,10 @@ export async function runConfigDiscovery(
   try {
     const value = (await client.query(DISCOVERY_QUERY, 120_000)) as DiscoveryValue;
     const docs: Record<string, string> = {};
-    for (const t of asArray(value.blockTypes)) {
-      const type = (t as { type?: unknown }).type;
-      if (typeof type !== 'string' || Object.keys(docs).length >= 20) continue;
+    const found = asArray(value.blockTypes)
+      .map((t) => (t as { type?: unknown }).type)
+      .filter((t): t is string => typeof t === 'string');
+    for (const type of docOrder(found)) {
       try {
         docs[type] = await client.getDoc(type);
       } catch (e) {
