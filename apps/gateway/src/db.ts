@@ -1,6 +1,11 @@
-import Database from 'better-sqlite3';
+import { DatabaseSync } from 'node:sqlite';
 
-export type Db = Database.Database;
+/**
+ * SQLite aus Node selbst (`node:sqlite`, ab Node 22.13 ohne Schalter). Keine native
+ * Abhängigkeit mehr: läuft auf jeder Node-Version ab 22.13 und jeder Plattform, auch
+ * Windows auf ARM, ohne Compiler.
+ */
+export type Db = DatabaseSync;
 
 /** Schemaversion der Gateway-Datenbank, über `PRAGMA user_version` geführt. */
 const MIGRATIONS: readonly string[] = [
@@ -42,21 +47,28 @@ const MIGRATIONS: readonly string[] = [
 ];
 
 export function openDb(path: string): Db {
-  const db = new Database(path);
-  db.pragma('journal_mode = WAL');
-  db.pragma('foreign_keys = ON');
-  const current = db.pragma('user_version', { simple: true }) as number;
+  const db = new DatabaseSync(path);
+  db.exec('PRAGMA journal_mode = WAL');
+  db.exec('PRAGMA foreign_keys = ON');
+  const row = db.prepare('PRAGMA user_version').get() as { user_version: number } | undefined;
+  const current = Number(row?.user_version ?? 0);
   if (current > MIGRATIONS.length) {
+    db.close();
     throw new Error(
       `Datenbank stammt aus einer neueren Gateway-Version (Schema ${current}). Bitte Gateway aktualisieren.`,
     );
   }
   for (let v = current; v < MIGRATIONS.length; v++) {
     const sql = MIGRATIONS[v] as string;
-    db.transaction(() => {
+    db.exec('BEGIN');
+    try {
       db.exec(sql);
-      db.pragma(`user_version = ${v + 1}`);
-    })();
+      db.exec(`PRAGMA user_version = ${v + 1}`);
+      db.exec('COMMIT');
+    } catch (error) {
+      db.exec('ROLLBACK');
+      throw error;
+    }
   }
   return db;
 }

@@ -64,7 +64,7 @@ export class Changelog {
       params.push(opts.beforeId);
     }
     const sql = `SELECT * FROM changelog ${where.length ? 'WHERE ' + where.join(' AND ') : ''} ORDER BY id DESC LIMIT ?`;
-    const rows = this.db.prepare(sql).all(...params, opts.limit) as Row[];
+    const rows = this.db.prepare(sql).all(...params, opts.limit) as unknown as Row[];
     return rows.map((r) => ({
       id: r.id,
       at: r.at,

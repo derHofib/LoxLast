@@ -21,9 +21,9 @@ interface Row {
   id: string;
   kind: CredentialKind;
   label: string;
-  iv: Buffer;
-  tag: Buffer;
-  ciphertext: Buffer;
+  iv: Uint8Array;
+  tag: Uint8Array;
+  ciphertext: Uint8Array;
   created_at: string;
   updated_at: string;
 }
@@ -84,6 +84,6 @@ export class CredentialStore {
   }
 
   delete(id: string): boolean {
-    return this.db.prepare('DELETE FROM credentials WHERE id = ?').run(id).changes > 0;
+    return Number(this.db.prepare('DELETE FROM credentials WHERE id = ?').run(id).changes) > 0;
   }
 }
